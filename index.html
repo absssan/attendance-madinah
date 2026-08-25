@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>نظام حضور ومتابعة فرع المدينة</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#17202a}
+header{background:#102a43;color:#fff;padding:22px}
+.wrap{max-width:1050px;margin:22px auto;padding:0 14px}
+.card{background:#fff;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 3px 15px #0001}
+input,button{width:100%;padding:13px;margin:7px 0;border-radius:9px;font-size:16px}
+input{border:1px solid #ccd3dc}
+button{border:0;background:#1677c8;color:#fff;font-weight:bold;cursor:pointer}
+button.secondary{background:#667085}
+button:disabled{opacity:.6;cursor:not-allowed}
+.hidden{display:none!important}
+.msg{padding:10px;border-radius:8px;margin-top:10px;white-space:pre-wrap}
+.error{background:#fee4e2;color:#b42318}
+.ok{background:#dcfae6;color:#067647}
+.muted{color:#667085;font-size:13px}
+table{width:100%;border-collapse:collapse}
+td,th{padding:10px;border-bottom:1px solid #eee;text-align:right}
+.scroll{overflow:auto}
+</style>
+</head>
+<body>
+<header>
+<div class="wrap">
+<h2>نظام حضور ومتابعة فرع المدينة</h2>
+<div>النسخة المصححة — متصلة بقاعدة Supabase</div>
+</div>
+</header>
+
+<div class="wrap">
+<section id="loginCard" class="card">
+<h3>تسجيل الدخول</h3>
+<input id="email" type="email" autocomplete="email" placeholder="البريد الإلكتروني">
+<input id="password" type="password" autocomplete="current-password" placeholder="كلمة المرور">
+<button id="loginBtn" type="button">تسجيل الدخول</button>
+<button id="signupBtn" type="button" class="secondary">إنشاء حساب</button>
+<div id="loginMsg"></div>
+</section>
+
+<section id="app" class="hidden">
+<div class="card">
+<div id="userInfo"></div>
+<button id="logoutBtn" class="secondary" type="button">تسجيل الخروج</button>
+</div>
+<div id="content"></div>
+</section>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const SUPABASE_URL = 'https://lhwsduzaicatihhqinir.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_L7E8EbRqcrbYXoRUBiemhg_-yzrXUXo';
+
+const $ = id => document.getElementById(id);
+const loginMsg = $('loginMsg');
+
+function message(text, type='error'){
+  loginMsg.className = 'msg ' + type;
+  loginMsg.textContent = text;
+}
+
+function setBusy(btn,busy,text){
+  btn.disabled = busy;
+  if(busy){ btn.dataset.old = btn.textContent; btn.textContent = text; }
+  else if(btn.dataset.old){ btn.textContent = btn.dataset.old; }
+}
+
+async function loadSupabase(){
+  if(window.supabase && typeof window.supabase.createClient === 'function'){
+    return window.supabase;
+  }
+
+  return new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    s.async=true;
+    s.onload=()=>{
+      if(window.supabase && typeof window.supabase.createClient === 'function') resolve(window.supabase);
+      else reject(new Error('تم تحميل المكتبة ولكنها غير متاحة.'));
+    };
+    s.onerror=()=>reject(new Error('تعذر تحميل مكتبة الاتصال. تحقق من الإنترنت ثم أعد تحميل الصفحة.'));
+    document.head.appendChild(s);
+  });
+}
+
+let client=null;
+let me=null;
+
+async function init(){
+  try{
+    const lib=await loadSupabase();
+    client=lib.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+    const {data,error}=await client.auth.getSession();
+    if(error) throw error;
+
+    if(data.session) await boot(data.session.user);
+  }catch(e){
+    message('تعذر تشغيل النظام:\\n'+(e.message||e));
+  }
+}
+
+async function login(){
+  const email=$('email').value.trim();
+  const password=$('password').value;
+
+  if(!email || !password){
+    message('أدخل البريد الإلكتروني وكلمة المرور.');
+    return;
+  }
+
+  setBusy($('loginBtn'),true,'جارٍ تسجيل الدخول...');
+  try{
+    const {data,error}=await client.auth.signInWithPassword({email,password});
+    if(error) throw error;
+    await boot(data.user);
+  }catch(e){
+    message('فشل تسجيل الدخول:\\n'+(e.message||e));
+  }finally{
+    setBusy($('loginBtn'),false);
+  }
+}
+
+async function signup(){
+  const email=$('email').value.trim();
+  const password=$('password').value;
+
+  if(!email || !password){
+    message('أدخل البريد الإلكتروني وكلمة المرور.');
+    return;
+  }
+  if(password.length<6){
+    message('كلمة المرور يجب أن تكون 6 أحرف على الأقل.');
+    return;
+  }
+
+  setBusy($('signupBtn'),true,'جارٍ إنشاء الحساب...');
+  try{
+    const {data,error}=await client.auth.signUp({email,password});
+    if(error) throw error;
+
+    if(data.session){
+      message('تم إنشاء الحساب. جارٍ فتح النظام...','ok');
+      await boot(data.user);
+    }else{
+      message('تم إنشاء الحساب. افتح بريدك الإلكتروني واضغط رابط تأكيد الحساب، ثم ارجع وسجّل الدخول.','ok');
+    }
+  }catch(e){
+    message('تعذر إنشاء الحساب:\\n'+(e.message||e));
+  }finally{
+    setBusy($('signupBtn'),false);
+  }
+}
+
+async function boot(user){
+  const {data,error}=await client.from('employees').select('*').eq('auth_user_id',user.id).maybeSingle();
+
+  if(error) throw error;
+
+  if(!data){
+    message('تم إنشاء الحساب، لكن الحساب غير مربوط بموظف بعد. يجب ربطه بسجل الموظف من قاعدة النظام.','error');
+    await client.auth.signOut();
+    return;
+  }
+
+  me=data;
+  $('loginCard').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  $('userInfo').innerHTML='<b>'+escapeHtml(me.name)+'</b><br><span class="muted">'+roleName(me.role)+'</span>';
+
+  if(me.role==='SUPERVISOR') await supervisor();
+  else if(me.role==='FIELD_REP') await fieldRep();
+  else await governmentRep();
+}
+
+function roleName(r){
+  return r==='SUPERVISOR'?'مشرف الفرع':r==='FIELD_REP'?'مندوب ميداني':'معقب ومراجعات حكومية';
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+async function supervisor(){
+  $('content').innerHTML='<div class="card"><h3>لوحة المشرف</h3><div id="dash">جارٍ تحميل البيانات...</div></div>';
+  const today=new Date().toISOString().slice(0,10);
+  const [emps,att,acts]=await Promise.all([
+    client.from('employees').select('*').eq('active',true).order('name'),
+    client.from('attendance').select('*').eq('work_date',today),
+    client.from('activities').select('*').order('created_at',{ascending:false}).limit(200)
+  ]);
+  if(emps.error) throw emps.error;
+  if(att.error) throw att.error;
+  if(acts.error) throw acts.error;
+
+  const amap=Object.fromEntries((att.data||[]).map(x=>[x.employee_id,x]));
+  const latest={};
+  (acts.data||[]).forEach(x=>{if(!latest[x.employee_id]) latest[x.employee_id]=x});
+
+  const rows=(emps.data||[]).map(e=>{
+    const a=amap[e.id], x=latest[e.id];
+    return '<tr><td>'+escapeHtml(e.name)+'</td><td>'+roleName(e.role)+'</td><td>'+
+      (a?.check_in?'حاضر':'لم يؤكد')+'</td><td>'+(x?.activity_type||'—')+'</td><td>'+
+      (a?.check_in?new Date(a.check_in).toLocaleTimeString('ar-SA'):'—')+
+      '</td></tr>';
+  }).join('');
+
+  $('dash').innerHTML='<p><b>الحضور المؤكد اليوم:</b> '+(att.data||[]).filter(x=>x.check_in).length+' / '+(emps.data||[]).length+'</p>'+
+  '<div class="scroll"><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحضور</th><th>النشاط</th><th>وقت الحضور</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+async function gps(){
+  if(!navigator.geolocation) throw new Error('المتصفح لا يدعم تحديد الموقع.');
+  return new Promise((resolve,reject)=>{
+    navigator.geolocation.getCurrentPosition(
+      p=>resolve(p.coords),
+      e=>reject(new Error('تعذر تحديد الموقع. اسمح للموقع من إعدادات المتصفح ثم حاول مرة أخرى.')),
+      {enableHighAccuracy:true,timeout:15000,maximumAge:0}
+    );
+  });
+}
+
+async function fieldRep(){
+  $('content').innerHTML='<div class="card"><h3>بداية الدوام</h3><button id="checkInBtn" type="button">تأكيد الحضور + تحديد الموقع</button><div id="status"></div><hr><h3>النشاط الحالي</h3><select id="activity"><option value="VISIT_CUSTOMER">زيارة عميل</option><option value="TRAVELING">في الطريق</option><option value="BRANCH">في الفرع</option><option value="OTHER">مهمة أخرى</option></select><input id="note" placeholder="ملاحظة اختيارية"><button id="activityBtn" type="button">تحديث النشاط</button></div>';
+  $('checkInBtn').addEventListener('click',checkIn);
+  $('activityBtn').addEventListener('click',sendActivity);
+}
+
+async function checkIn(){
+  const btn=$('checkInBtn');
+  setBusy(btn,true,'جارٍ تحديد الموقع...');
+  try{
+    const c=await gps();
+    const today=new Date().toISOString().slice(0,10);
+    const {data:old,error:findErr}=await client.from('attendance').select('id').eq('employee_id',me.id).eq('work_date',today).maybeSingle();
+    if(findErr) throw findErr;
+
+    let result;
+    const payload={check_in:new Date().toISOString(),start_latitude:c.latitude,start_longitude:c.longitude,start_accuracy:c.accuracy,status:'PRESENT',updated_at:new Date().toISOString()};
+
+    if(old){
+      result=await client.from('attendance').update(payload).eq('id',old.id);
+    }else{
+      result=await client.from('attendance').insert({...payload,employee_id:me.id,work_date:today});
+    }
+    if(result.error) throw result.error;
+
+    await client.from('activities').insert({employee_id:me.id,activity_type:'OTHER',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:'تأكيد الحضور'});
+    $('status').className='msg ok';
+    $('status').textContent='تم تسجيل الحضور بنجاح الساعة '+new Date().toLocaleTimeString('ar-SA');
+  }catch(e){
+    $('status').className='msg error';
+    $('status').textContent=e.message||String(e);
+  }finally{
+    setBusy(btn,false);
+  }
+}
+
+async function sendActivity(){
+  try{
+    const c=await gps();
+    const {error}=await client.from('activities').insert({employee_id:me.id,activity_type:$('activity').value,latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:$('note').value});
+    if(error) throw error;
+    alert('تم تحديث النشاط.');
+  }catch(e){alert(e.message||String(e));}
+}
+
+async function governmentRep(){
+  $('content').innerHTML='<div class="card"><h3>المهام الحكومية</h3><input id="authority" placeholder="الجهة الحكومية"><input id="transaction" placeholder="رقم / وصف المعاملة"><select id="taskStatus"><option value="NEW">جديدة</option><option value="IN_PROGRESS">تحت الإجراء</option><option value="COMPLETED">مكتملة</option><option value="FOLLOW_UP">تحتاج متابعة</option><option value="REJECTED">مرفوضة</option></select><input id="taskNote" placeholder="ملاحظات"><button id="addTaskBtn" type="button">إضافة مهمة</button><div id="taskList"></div></div>';
+  $('addTaskBtn').addEventListener('click',addTask);
+  await loadTasks();
+}
+
+async function addTask(){
+  if(!$('authority').value.trim()||!$('transaction').value.trim()){alert('أدخل الجهة ووصف المعاملة.');return;}
+  const {error}=await client.from('government_tasks').insert({employee_id:me.id,authority:$('authority').value.trim(),transaction:$('transaction').value.trim(),status:$('taskStatus').value,notes:$('taskNote').value,started_at:new Date().toISOString()});
+  if(error){alert(error.message);return;}
+  $('authority').value='';$('transaction').value='';$('taskNote').value='';
+  await loadTasks();
+}
+
+async function loadTasks(){
+  const {data,error}=await client.from('government_tasks').select('*').eq('employee_id',me.id).order('created_at',{ascending:false}).limit(30);
+  if(error){$('taskList').textContent=error.message;return;}
+  $('taskList').innerHTML=(data||[]).map(t=>'<div class="card"><b>'+escapeHtml(t.authority)+'</b><br>'+escapeHtml(t.transaction)+'<br><span class="muted">'+escapeHtml(t.status)+'</span></div>').join('');
+}
+
+$('loginBtn').addEventListener('click',login);
+$('signupBtn').addEventListener('click',signup);
+$('logoutBtn').addEventListener('click',async()=>{await client.auth.signOut();location.reload();});
+
+init();
+})();
+</script>
+</body>
+</html>
