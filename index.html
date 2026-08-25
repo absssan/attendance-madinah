@@ -5,34 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>نظام حضور ومتابعة فرع المدينة</title>
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#17202a}
-header{background:#102a43;color:#fff;padding:22px}
-.wrap{max-width:1050px;margin:22px auto;padding:0 14px}
-.card{background:#fff;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 3px 15px #0001}
-input,button{width:100%;padding:13px;margin:7px 0;border-radius:9px;font-size:16px}
-input{border:1px solid #ccd3dc}
-button{border:0;background:#1677c8;color:#fff;font-weight:bold;cursor:pointer}
-button.secondary{background:#667085}
-button:disabled{opacity:.6;cursor:not-allowed}
-.hidden{display:none!important}
-.msg{padding:10px;border-radius:8px;margin-top:10px;white-space:pre-wrap}
-.error{background:#fee4e2;color:#b42318}
-.ok{background:#dcfae6;color:#067647}
-.muted{color:#667085;font-size:13px}
-table{width:100%;border-collapse:collapse}
-td,th{padding:10px;border-bottom:1px solid #eee;text-align:right}
-.scroll{overflow:auto}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#17202a}header{background:#102a43;color:#fff;padding:22px}.wrap{max-width:1050px;margin:22px auto;padding:0 14px}.card{background:#fff;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 3px 15px #0001}input,button,select{width:100%;padding:13px;margin:7px 0;border-radius:9px;font-size:16px}input,select{border:1px solid #ccd3dc;background:#fff}button{border:0;background:#1677c8;color:#fff;font-weight:bold;cursor:pointer}button.secondary{background:#667085}button:disabled{opacity:.6;cursor:not-allowed}.hidden{display:none!important}.msg{padding:10px;border-radius:8px;margin-top:10px;white-space:pre-wrap}.error{background:#fee4e2;color:#b42318}.ok{background:#dcfae6;color:#067647}.muted{color:#667085;font-size:13px}table{width:100%;border-collapse:collapse}td,th{padding:10px;border-bottom:1px solid #eee;text-align:right}.scroll{overflow:auto}.statusbar{padding:10px;border-radius:8px;background:#eef4ff;margin:8px 0;font-size:14px}
 </style>
 </head>
 <body>
-<header>
-<div class="wrap">
-<h2>نظام حضور ومتابعة فرع المدينة</h2>
-<div>النسخة المصححة — متصلة بقاعدة Supabase</div>
-</div>
-</header>
-
+<header><div class="wrap"><h2>نظام حضور ومتابعة فرع المدينة</h2><div>نسخة اتصال مباشرة بقاعدة Supabase — بدون مكتبات خارجية</div></div></header>
 <div class="wrap">
 <section id="loginCard" class="card">
 <h3>تسجيل الدخول</h3>
@@ -40,265 +17,97 @@ td,th{padding:10px;border-bottom:1px solid #eee;text-align:right}
 <input id="password" type="password" autocomplete="current-password" placeholder="كلمة المرور">
 <button id="loginBtn" type="button">تسجيل الدخول</button>
 <button id="signupBtn" type="button" class="secondary">إنشاء حساب</button>
-<div id="loginMsg"></div>
+<div id="loginMsg" class="msg hidden"></div>
+<div id="connectionStatus" class="statusbar">جاري تجهيز الاتصال...</div>
 </section>
-
 <section id="app" class="hidden">
-<div class="card">
-<div id="userInfo"></div>
-<button id="logoutBtn" class="secondary" type="button">تسجيل الخروج</button>
-</div>
+<div class="card"><div id="userInfo"></div><button id="logoutBtn" class="secondary" type="button">تسجيل الخروج</button></div>
 <div id="content"></div>
 </section>
 </div>
-
 <script>
 (function(){
 'use strict';
-
-const SUPABASE_URL = 'https://lhwsduzaicatihhqinir.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_L7E8EbRqcrbYXoRUBiemhg_-yzrXUXo';
-
-const $ = id => document.getElementById(id);
-const loginMsg = $('loginMsg');
-
-function message(text, type='error'){
-  loginMsg.className = 'msg ' + type;
-  loginMsg.textContent = text;
-}
-
-function setBusy(btn,busy,text){
-  btn.disabled = busy;
-  if(busy){ btn.dataset.old = btn.textContent; btn.textContent = text; }
-  else if(btn.dataset.old){ btn.textContent = btn.dataset.old; }
-}
-
-async function loadSupabase(){
-  if(window.supabase && typeof window.supabase.createClient === 'function'){
-    return window.supabase;
-  }
-
-  return new Promise((resolve,reject)=>{
-    const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-    s.async=true;
-    s.onload=()=>{
-      if(window.supabase && typeof window.supabase.createClient === 'function') resolve(window.supabase);
-      else reject(new Error('تم تحميل المكتبة ولكنها غير متاحة.'));
-    };
-    s.onerror=()=>reject(new Error('تعذر تحميل مكتبة الاتصال. تحقق من الإنترنت ثم أعد تحميل الصفحة.'));
-    document.head.appendChild(s);
-  });
-}
-
-let client=null;
+const SUPABASE_URL='https://lhwsduzaicatihhqinir.supabase.co';
+const SUPABASE_KEY='sb_publishable_L7E8EbRqcrbYXoRUBiemhg_-yzrXUXo';
+let accessToken=localStorage.getItem('attendance_access_token')||'';
+let refreshToken=localStorage.getItem('attendance_refresh_token')||'';
 let me=null;
-
-async function init(){
-  try{
-    const lib=await loadSupabase();
-    client=lib.createClient(SUPABASE_URL,SUPABASE_KEY);
-
-    const {data,error}=await client.auth.getSession();
-    if(error) throw error;
-
-    if(data.session) await boot(data.session.user);
-  }catch(e){
-    message('تعذر تشغيل النظام:\\n'+(e.message||e));
-  }
+const $=id=>document.getElementById(id);
+function showMsg(text,type){const el=$('loginMsg');el.textContent=text;el.className='msg '+(type||'error');}
+function setBusy(btn,busy,text){btn.disabled=busy;if(busy){btn.dataset.old=btn.textContent;btn.textContent=text;}else if(btn.dataset.old){btn.textContent=btn.dataset.old;}}
+function headers(auth){return {'apikey':SUPABASE_KEY,'Content-Type':'application/json',...(auth&&accessToken?{'Authorization':'Bearer '+accessToken}:{})};}
+async function api(path,options={}){
+  const res=await fetch(SUPABASE_URL+path,{...options,headers:{...headers(!!options.auth),...(options.headers||{})}});
+  let body=null;try{body=await res.json();}catch(_){body=null;}
+  if(!res.ok){let msg=body?.msg||body?.message||body?.error_description||body?.error||('HTTP '+res.status);throw new Error(msg);}
+  return body;
 }
-
-async function login(){
-  const email=$('email').value.trim();
-  const password=$('password').value;
-
-  if(!email || !password){
-    message('أدخل البريد الإلكتروني وكلمة المرور.');
-    return;
-  }
-
-  setBusy($('loginBtn'),true,'جارٍ تسجيل الدخول...');
-  try{
-    const {data,error}=await client.auth.signInWithPassword({email,password});
-    if(error) throw error;
-    await boot(data.user);
-  }catch(e){
-    message('فشل تسجيل الدخول:\\n'+(e.message||e));
-  }finally{
-    setBusy($('loginBtn'),false);
-  }
+async function refresh(){
+  if(!refreshToken)return false;
+  try{const d=await api('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:JSON.stringify({refresh_token:refreshToken})});saveSession(d);return true;}catch(_){clearSession();return false;}
 }
-
+function saveSession(d){accessToken=d.access_token||'';refreshToken=d.refresh_token||refreshToken;if(accessToken)localStorage.setItem('attendance_access_token',accessToken);if(refreshToken)localStorage.setItem('attendance_refresh_token',refreshToken);}
+function clearSession(){accessToken='';refreshToken='';localStorage.removeItem('attendance_access_token');localStorage.removeItem('attendance_refresh_token');}
+async function authApi(path,options={}){try{return await api(path,{...options,auth:true});}catch(e){if((e.message||'').includes('JWT')||e.message.includes('expired')||e.message.includes('token')){if(await refresh())return api(path,{...options,auth:true});}throw e;}}
 async function signup(){
-  const email=$('email').value.trim();
-  const password=$('password').value;
-
-  if(!email || !password){
-    message('أدخل البريد الإلكتروني وكلمة المرور.');
-    return;
-  }
-  if(password.length<6){
-    message('كلمة المرور يجب أن تكون 6 أحرف على الأقل.');
-    return;
-  }
-
-  setBusy($('signupBtn'),true,'جارٍ إنشاء الحساب...');
-  try{
-    const {data,error}=await client.auth.signUp({email,password});
-    if(error) throw error;
-
-    if(data.session){
-      message('تم إنشاء الحساب. جارٍ فتح النظام...','ok');
-      await boot(data.user);
-    }else{
-      message('تم إنشاء الحساب. افتح بريدك الإلكتروني واضغط رابط تأكيد الحساب، ثم ارجع وسجّل الدخول.','ok');
-    }
-  }catch(e){
-    message('تعذر إنشاء الحساب:\\n'+(e.message||e));
-  }finally{
-    setBusy($('signupBtn'),false);
-  }
+ const email=$('email').value.trim(),password=$('password').value;
+ if(!email||!password)return showMsg('أدخل البريد الإلكتروني وكلمة المرور.');
+ if(password.length<6)return showMsg('كلمة المرور يجب أن تكون 6 أحرف على الأقل.');
+ const btn=$('signupBtn');setBusy(btn,true,'جارٍ إنشاء الحساب...');
+ try{
+   const d=await api('/auth/v1/signup',{method:'POST',body:JSON.stringify({email,password})});
+   if(d.access_token){saveSession(d);showMsg('تم إنشاء الحساب بنجاح. جارٍ فتح النظام...','ok');await boot(d.user);}
+   else showMsg('تم إنشاء الحساب. افتح بريدك الإلكتروني واضغط رابط تأكيد الحساب، ثم ارجع وسجّل الدخول.','ok');
+ }catch(e){showMsg('تعذر إنشاء الحساب:\n'+e.message);}
+ finally{setBusy(btn,false);}
 }
-
+async function login(){
+ const email=$('email').value.trim(),password=$('password').value;
+ if(!email||!password)return showMsg('أدخل البريد الإلكتروني وكلمة المرور.');
+ const btn=$('loginBtn');setBusy(btn,true,'جارٍ تسجيل الدخول...');
+ try{const d=await api('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password})});saveSession(d);showMsg('تم تسجيل الدخول.','ok');await boot(d.user);}catch(e){showMsg('فشل تسجيل الدخول:\n'+e.message);}finally{setBusy(btn,false);}
+}
 async function boot(user){
-  const {data,error}=await client.from('employees').select('*').eq('auth_user_id',user.id).maybeSingle();
-
-  if(error) throw error;
-
-  if(!data){
-    message('تم إنشاء الحساب، لكن الحساب غير مربوط بموظف بعد. يجب ربطه بسجل الموظف من قاعدة النظام.','error');
-    await client.auth.signOut();
-    return;
-  }
-
-  me=data;
-  $('loginCard').classList.add('hidden');
-  $('app').classList.remove('hidden');
-  $('userInfo').innerHTML='<b>'+escapeHtml(me.name)+'</b><br><span class="muted">'+roleName(me.role)+'</span>';
-
-  if(me.role==='SUPERVISOR') await supervisor();
-  else if(me.role==='FIELD_REP') await fieldRep();
-  else await governmentRep();
+ try{
+  const rows=await authApi('/rest/v1/employees?select=*&auth_user_id=eq.'+encodeURIComponent(user.id));
+  if(!rows||!rows.length){showMsg('الحساب صحيح، لكن لم يتم ربطه بسجل موظف في النظام بعد. اربط auth_user_id بسجل الموظف من قاعدة Supabase.');clearSession();return;}
+  me=rows[0];$('loginCard').classList.add('hidden');$('app').classList.remove('hidden');$('userInfo').innerHTML='<b>'+escapeHtml(me.name)+'</b><br><span class="muted">'+roleName(me.role)+'</span>';
+  if(me.role==='SUPERVISOR')await supervisor();else if(me.role==='FIELD_REP')await fieldRep();else await governmentRep();
+ }catch(e){showMsg('تم الدخول لكن تعذر تحميل بيانات الموظف:\n'+e.message);}
 }
-
-function roleName(r){
-  return r==='SUPERVISOR'?'مشرف الفرع':r==='FIELD_REP'?'مندوب ميداني':'معقب ومراجعات حكومية';
-}
-
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-
+function roleName(r){return r==='SUPERVISOR'?'مشرف الفرع':r==='FIELD_REP'?'مندوب ميداني':'معقب ومراجعات حكومية';}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 async function supervisor(){
-  $('content').innerHTML='<div class="card"><h3>لوحة المشرف</h3><div id="dash">جارٍ تحميل البيانات...</div></div>';
+ $('content').innerHTML='<div class="card"><h3>لوحة المشرف</h3><div id="dash">جارٍ تحميل البيانات...</div></div>';
+ try{
   const today=new Date().toISOString().slice(0,10);
   const [emps,att,acts]=await Promise.all([
-    client.from('employees').select('*').eq('active',true).order('name'),
-    client.from('attendance').select('*').eq('work_date',today),
-    client.from('activities').select('*').order('created_at',{ascending:false}).limit(200)
+   authApi('/rest/v1/employees?select=*&active=eq.true&order=name'),
+   authApi('/rest/v1/attendance?select=*&work_date=eq.'+today),
+   authApi('/rest/v1/activities?select=*&order=created_at.desc&limit=200')
   ]);
-  if(emps.error) throw emps.error;
-  if(att.error) throw att.error;
-  if(acts.error) throw acts.error;
-
-  const amap=Object.fromEntries((att.data||[]).map(x=>[x.employee_id,x]));
-  const latest={};
-  (acts.data||[]).forEach(x=>{if(!latest[x.employee_id]) latest[x.employee_id]=x});
-
-  const rows=(emps.data||[]).map(e=>{
-    const a=amap[e.id], x=latest[e.id];
-    return '<tr><td>'+escapeHtml(e.name)+'</td><td>'+roleName(e.role)+'</td><td>'+
-      (a?.check_in?'حاضر':'لم يؤكد')+'</td><td>'+(x?.activity_type||'—')+'</td><td>'+
-      (a?.check_in?new Date(a.check_in).toLocaleTimeString('ar-SA'):'—')+
-      '</td></tr>';
-  }).join('');
-
-  $('dash').innerHTML='<p><b>الحضور المؤكد اليوم:</b> '+(att.data||[]).filter(x=>x.check_in).length+' / '+(emps.data||[]).length+'</p>'+
-  '<div class="scroll"><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحضور</th><th>النشاط</th><th>وقت الحضور</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  const amap=Object.fromEntries((att||[]).map(x=>[x.employee_id,x]));const latest={};(acts||[]).forEach(x=>{if(!latest[x.employee_id])latest[x.employee_id]=x;});
+  const rows=(emps||[]).map(e=>{const a=amap[e.id],x=latest[e.id];return '<tr><td>'+escapeHtml(e.name)+'</td><td>'+roleName(e.role)+'</td><td>'+(a?.check_in?'حاضر':'لم يؤكد')+'</td><td>'+(x?.activity_type||'—')+'</td><td>'+(a?.check_in?new Date(a.check_in).toLocaleTimeString('ar-SA'):'—')+'</td></tr>';}).join('');
+  $('dash').innerHTML='<p><b>الحضور المؤكد اليوم:</b> '+(att||[]).filter(x=>x.check_in).length+' / '+(emps||[]).length+'</p><div class="scroll"><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحضور</th><th>النشاط</th><th>وقت الحضور</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+ }catch(e){$('dash').textContent='تعذر تحميل لوحة المشرف: '+e.message;}
 }
-
-async function gps(){
-  if(!navigator.geolocation) throw new Error('المتصفح لا يدعم تحديد الموقع.');
-  return new Promise((resolve,reject)=>{
-    navigator.geolocation.getCurrentPosition(
-      p=>resolve(p.coords),
-      e=>reject(new Error('تعذر تحديد الموقع. اسمح للموقع من إعدادات المتصفح ثم حاول مرة أخرى.')),
-      {enableHighAccuracy:true,timeout:15000,maximumAge:0}
-    );
-  });
-}
-
+function gps(){if(!navigator.geolocation)throw new Error('المتصفح لا يدعم تحديد الموقع.');return new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(p=>resolve(p.coords),()=>reject(new Error('تعذر تحديد الموقع. اسمح للموقع من إعدادات المتصفح ثم حاول مرة أخرى.')),{enableHighAccuracy:true,timeout:15000,maximumAge:0}));}
 async function fieldRep(){
-  $('content').innerHTML='<div class="card"><h3>بداية الدوام</h3><button id="checkInBtn" type="button">تأكيد الحضور + تحديد الموقع</button><div id="status"></div><hr><h3>النشاط الحالي</h3><select id="activity"><option value="VISIT_CUSTOMER">زيارة عميل</option><option value="TRAVELING">في الطريق</option><option value="BRANCH">في الفرع</option><option value="OTHER">مهمة أخرى</option></select><input id="note" placeholder="ملاحظة اختيارية"><button id="activityBtn" type="button">تحديث النشاط</button></div>';
-  $('checkInBtn').addEventListener('click',checkIn);
-  $('activityBtn').addEventListener('click',sendActivity);
+ $('content').innerHTML='<div class="card"><h3>بداية الدوام</h3><button id="checkInBtn" type="button">تأكيد الحضور + تحديد الموقع</button><div id="status"></div><hr><h3>النشاط الحالي</h3><select id="activity"><option value="VISIT_CUSTOMER">زيارة عميل</option><option value="TRAVELING">في الطريق</option><option value="BRANCH">في الفرع</option><option value="OTHER">مهمة أخرى</option></select><input id="note" placeholder="ملاحظة اختيارية"><button id="activityBtn" type="button">تحديث النشاط</button></div>';
+ $('checkInBtn').onclick=checkIn;$('activityBtn').onclick=sendActivity;
 }
-
-async function checkIn(){
-  const btn=$('checkInBtn');
-  setBusy(btn,true,'جارٍ تحديد الموقع...');
-  try{
-    const c=await gps();
-    const today=new Date().toISOString().slice(0,10);
-    const {data:old,error:findErr}=await client.from('attendance').select('id').eq('employee_id',me.id).eq('work_date',today).maybeSingle();
-    if(findErr) throw findErr;
-
-    let result;
-    const payload={check_in:new Date().toISOString(),start_latitude:c.latitude,start_longitude:c.longitude,start_accuracy:c.accuracy,status:'PRESENT',updated_at:new Date().toISOString()};
-
-    if(old){
-      result=await client.from('attendance').update(payload).eq('id',old.id);
-    }else{
-      result=await client.from('attendance').insert({...payload,employee_id:me.id,work_date:today});
-    }
-    if(result.error) throw result.error;
-
-    await client.from('activities').insert({employee_id:me.id,activity_type:'OTHER',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:'تأكيد الحضور'});
-    $('status').className='msg ok';
-    $('status').textContent='تم تسجيل الحضور بنجاح الساعة '+new Date().toLocaleTimeString('ar-SA');
-  }catch(e){
-    $('status').className='msg error';
-    $('status').textContent=e.message||String(e);
-  }finally{
-    setBusy(btn,false);
-  }
-}
-
-async function sendActivity(){
-  try{
-    const c=await gps();
-    const {error}=await client.from('activities').insert({employee_id:me.id,activity_type:$('activity').value,latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:$('note').value});
-    if(error) throw error;
-    alert('تم تحديث النشاط.');
-  }catch(e){alert(e.message||String(e));}
-}
-
+async function checkIn(){const btn=$('checkInBtn');setBusy(btn,true,'جارٍ تحديد الموقع...');try{const c=await gps(),today=new Date().toISOString().slice(0,10);const old=await authApi('/rest/v1/attendance?select=id&employee_id=eq.'+encodeURIComponent(me.id)+'&work_date=eq.'+today);const payload={check_in:new Date().toISOString(),start_latitude:c.latitude,start_longitude:c.longitude,start_accuracy:c.accuracy,status:'PRESENT',updated_at:new Date().toISOString()};let d;if(old?.length)d=await authApi('/rest/v1/attendance?id=eq.'+old[0].id,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)});else d=await authApi('/rest/v1/attendance',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({...payload,employee_id:me.id,work_date:today})});await authApi('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,activity_type:'OTHER',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:'تأكيد الحضور'})});$('status').className='msg ok';$('status').textContent='تم تسجيل الحضور بنجاح الساعة '+new Date().toLocaleTimeString('ar-SA');}catch(e){$('status').className='msg error';$('status').textContent=e.message||String(e);}finally{setBusy(btn,false);}}
+async function sendActivity(){try{const c=await gps();await authApi('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,activity_type:$('activity').value,latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:$('note').value})});alert('تم تحديث النشاط.');}catch(e){alert(e.message||String(e));}}
 async function governmentRep(){
-  $('content').innerHTML='<div class="card"><h3>المهام الحكومية</h3><input id="authority" placeholder="الجهة الحكومية"><input id="transaction" placeholder="رقم / وصف المعاملة"><select id="taskStatus"><option value="NEW">جديدة</option><option value="IN_PROGRESS">تحت الإجراء</option><option value="COMPLETED">مكتملة</option><option value="FOLLOW_UP">تحتاج متابعة</option><option value="REJECTED">مرفوضة</option></select><input id="taskNote" placeholder="ملاحظات"><button id="addTaskBtn" type="button">إضافة مهمة</button><div id="taskList"></div></div>';
-  $('addTaskBtn').addEventListener('click',addTask);
-  await loadTasks();
+ $('content').innerHTML='<div class="card"><h3>المهام الحكومية</h3><input id="authority" placeholder="الجهة الحكومية"><input id="transaction" placeholder="رقم / وصف المعاملة"><select id="taskStatus"><option value="NEW">جديدة</option><option value="IN_PROGRESS">تحت الإجراء</option><option value="COMPLETED">مكتملة</option><option value="FOLLOW_UP">تحتاج متابعة</option><option value="REJECTED">مرفوضة</option></select><input id="taskNote" placeholder="ملاحظات"><button id="addTaskBtn" type="button">إضافة مهمة</button><div id="taskList"></div></div>';
+ $('addTaskBtn').onclick=addTask;await loadTasks();
 }
-
-async function addTask(){
-  if(!$('authority').value.trim()||!$('transaction').value.trim()){alert('أدخل الجهة ووصف المعاملة.');return;}
-  const {error}=await client.from('government_tasks').insert({employee_id:me.id,authority:$('authority').value.trim(),transaction:$('transaction').value.trim(),status:$('taskStatus').value,notes:$('taskNote').value,started_at:new Date().toISOString()});
-  if(error){alert(error.message);return;}
-  $('authority').value='';$('transaction').value='';$('taskNote').value='';
-  await loadTasks();
-}
-
-async function loadTasks(){
-  const {data,error}=await client.from('government_tasks').select('*').eq('employee_id',me.id).order('created_at',{ascending:false}).limit(30);
-  if(error){$('taskList').textContent=error.message;return;}
-  $('taskList').innerHTML=(data||[]).map(t=>'<div class="card"><b>'+escapeHtml(t.authority)+'</b><br>'+escapeHtml(t.transaction)+'<br><span class="muted">'+escapeHtml(t.status)+'</span></div>').join('');
-}
-
-$('loginBtn').addEventListener('click',login);
-$('signupBtn').addEventListener('click',signup);
-$('logoutBtn').addEventListener('click',async()=>{await client.auth.signOut();location.reload();});
-
-init();
+async function addTask(){if(!$('authority').value.trim()||!$('transaction').value.trim()){alert('أدخل الجهة ووصف المعاملة.');return;}try{await authApi('/rest/v1/government_tasks',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,authority:$('authority').value.trim(),transaction:$('transaction').value.trim(),status:$('taskStatus').value,notes:$('taskNote').value,started_at:new Date().toISOString()})});$('authority').value='';$('transaction').value='';$('taskNote').value='';await loadTasks();}catch(e){alert(e.message);}}
+async function loadTasks(){try{const data=await authApi('/rest/v1/government_tasks?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&order=created_at.desc&limit=30');$('taskList').innerHTML=(data||[]).map(t=>'<div class="card"><b>'+escapeHtml(t.authority)+'</b><br>'+escapeHtml(t.transaction)+'<br><span class="muted">'+escapeHtml(t.status)+'</span></div>').join('');}catch(e){$('taskList').textContent=e.message;}}
+$('loginBtn').onclick=login;$('signupBtn').onclick=signup;$('logoutBtn').onclick=()=>{clearSession();location.reload();};
+$('connectionStatus').textContent='الاتصال جاهز — يمكنك الضغط على الأزرار الآن.';$('connectionStatus').style.background='#dcfae6';
+if(accessToken){authApi('/auth/v1/user').then(u=>boot(u)).catch(()=>clearSession());}
 })();
 </script>
-</body>
-</html>
+</body></html>
