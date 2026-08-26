@@ -145,7 +145,7 @@ function supervisorControls(e,a){
  return `<button class="btn secondary small" onclick="supervisorAttendanceAction('${e.id}','REOPEN')">↩ إعادة فتح</button>`;
 }
 
-function supervisorEmployeeDetails(e,a,latest){
+function supervisorEmployeeDetails(e,a,lastActivity){
  const el=document.createElement('div');
  el.className='card';
  el.innerHTML=`<div class="sectionhead"><h3>${esc(e.name)} — التفاصيل اليومية</h3><button class="btn secondary small" onclick="this.closest('.card').remove()">إغلاق</button></div>
@@ -209,7 +209,7 @@ async function renderSupervisor(){
    api('/rest/v1/government_tasks?select=*&order=created_at.desc&limit=100')
   ]);
   const amap=Object.fromEntries(att.map(x=>[x.employee_id,x]));
-  const latest={};acts.forEach(x=>{if(!latest[x.employee_id])latest[x.employee_id]=x});
+  const activityMap={};acts.forEach(x=>{if(!activityMap[x.employee_id])activityMap[x.employee_id]=x});
   const present=att.filter(x=>x.check_in).length;
   const late=att.filter(x=>Number(x.late_minutes||0)>0).length;
   const checkedOut=att.filter(x=>x.check_out).length;
@@ -232,12 +232,12 @@ async function renderSupervisor(){
    <div id="pwMsg"></div>
   </div>
   <div class="card"><div class="sectionhead"><h3>حالة الموظفين الآن</h3><div class="no-print"><button class="btn secondary small" onclick="printDailyReport()">🖨️ طباعة الكشف اليومي</button> <button class="btn secondary small" onclick="renderSupervisor()">↻ تحديث</button></div></div>
-   <div class="card no-print"><div class="sectionhead"><h3>تحكم المشرف بالحضور والانصراف</h3><span class="muted">علي فقط</span></div><div class="muted">يمكن للمشرف تحضير الموظف أو صرفه أو إعادة فتح دوامه. كل عملية تُسجل في سجل التدقيق.</div></div><div id="supervisorDetails"></div><div class="empgrid">${emps.map(e=>empCard(e,amap[e.id],latest[e.id])).join('')}</div>
+   <div class="card no-print"><div class="sectionhead"><h3>تحكم المشرف بالحضور والانصراف</h3><span class="muted">علي فقط</span></div><div class="muted">يمكن للمشرف تحضير الموظف أو صرفه أو إعادة فتح دوامه. كل عملية تُسجل في سجل التدقيق.</div></div><div id="supervisorDetails"></div><div class="empgrid">${emps.map(e=>empCard(e,amap[e.id],activityMap[e.id])).join('')}</div>
   </div>
   <div class="card"><div class="sectionhead"><h3>خريطة مواقع الحضور اليوم</h3><span class="muted">آخر موقع مسجل لكل موظف</span></div><div id="supervisorMap" class="map"></div></div>
   <div class="card"><div class="sectionhead"><h3>سجل الحضور اليوم</h3></div>
    <div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحضور</th><th>التأخير</th><th>الانصراف</th><th>آخر نشاط</th><th class="no-print">تحكم</th></tr></thead>
-   <tbody>${emps.map(e=>{let a=amap[e.id],x=latest[e.id];return `<tr><td><b>${esc(e.name)}</b></td><td>${roleName(e.role)}</td><td>${a?.check_in?'<span class="pill p-green">حاضر</span>':'<span class="pill p-red">لم يسجل</span>'} ${time(a?.check_in)}</td><td>${a?.late_minutes?'<span class="pill p-orange">'+a.late_minutes+' دقيقة</span>':'—'}</td><td>${time(a?.check_out)}</td><td>${activityName(x?.activity_type)}<br><span class="muted">${dateTime(x?.created_at)}</span></td><td class="no-print"><div class="actions">${supervisorControls(e,a)}<button class="btn secondary small" onclick='supervisorEmployeeDetails(${JSON.stringify(e)},${JSON.stringify(a||null)},${JSON.stringify(x||null)})'>👁</button></div></td></tr>`}).join('')}</tbody></table></div>
+   <tbody>${emps.map(e=>{let a=amap[e.id],x=activityMap[e.id];return `<tr><td><b>${esc(e.name)}</b></td><td>${roleName(e.role)}</td><td>${a?.check_in?'<span class="pill p-green">حاضر</span>':'<span class="pill p-red">لم يسجل</span>'} ${time(a?.check_in)}</td><td>${a?.late_minutes?'<span class="pill p-orange">'+a.late_minutes+' دقيقة</span>':'—'}</td><td>${time(a?.check_out)}</td><td>${activityName(x?.activity_type)}<br><span class="muted">${dateTime(x?.created_at)}</span></td><td class="no-print"><div class="actions">${supervisorControls(e,a)}<button class="btn secondary small" onclick='supervisorEmployeeDetails(${JSON.stringify(e)},${JSON.stringify(a||null)},${JSON.stringify(x||null)})'>👁</button></div></td></tr>`}).join('')}</tbody></table></div>
   </div>
   <div class="card"><div class="sectionhead"><h3>آخر الزيارات الميدانية</h3><span class="muted">وصول ومغادرة العملاء</span></div>
    <div id="recentVisits">جارٍ التحميل...</div>
