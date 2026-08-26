@@ -144,6 +144,47 @@ function supervisorControls(e,a){
  if(!a?.check_out)return `<button class="btn danger small" onclick="supervisorAttendanceAction('${e.id}','CHECK_OUT')">🔴 صرف</button>`;
  return `<button class="btn secondary small" onclick="supervisorAttendanceAction('${e.id}','REOPEN')">↩ إعادة فتح</button>`;
 }
+
+function supervisorEmployeeDetails(e,a,latest){
+ const el=document.createElement('div');
+ el.className='card';
+ el.innerHTML=`<div class="sectionhead"><h3>${esc(e.name)} — التفاصيل اليومية</h3><button class="btn secondary small" onclick="this.closest('.card').remove()">إغلاق</button></div>
+ <div class="grid">
+  <div class="stat"><div class="label">الحضور</div><div class="num">${time(a?.check_in)}</div></div>
+  <div class="stat"><div class="label">الانصراف</div><div class="num">${time(a?.check_out)}</div></div>
+  <div class="stat"><div class="label">التأخير</div><div class="num">${a?.late_minutes||0} د</div></div>
+  <div class="stat"><div class="label">الحالة</div><div class="num">${a?.check_out?'منصرف':a?.check_in?'حاضر':'غائب'}</div></div>
+ </div>
+ <div class="actions no-print" style="margin-top:12px">
+  ${a?.start_latitude&&a?.start_longitude?`<button class="btn secondary" onclick="showSupervisorLocation(${a.start_latitude},${a.start_longitude},'موقع حضور ${esc(e.name)}')">📍 مشاهدة موقع التحضير</button>`:''}
+  <button class="btn secondary" onclick="showEmployeeDay('${e.id}','${esc(e.name)}')">📋 سجل اليوم</button>
+ </div>
+ <div id="employeeDay_${e.id}" style="margin-top:12px"></div>`;
+ document.querySelector('#supervisorDetails')?.replaceChildren(el) || $('content').prepend(el);
+}
+async function showEmployeeDay(id,name){
+ const host=$('employeeDay_'+id); if(!host)return;
+ const d=today();
+ const rows=await api('/rest/v1/activities?select=*&employee_id=eq.'+id+'&order=created_at.asc&limit=200');
+ const acts=rows.filter(x=>String(x.created_at||'').slice(0,10)===d);
+ host.innerHTML=`<h4>سجل ${esc(name)} اليوم</h4>`+(acts.length?acts.map(x=>{
+   let n=String(x.note||'');
+   if(n.startsWith('VISIT_ARRIVED|')){let p=n.split('|');n=`🟢 وصل إلى العميل: ${esc(p[1]||'')}${p[2]?' — '+esc(p[2]):''}`}
+   else if(n.startsWith('VISIT_LEFT|')){let p=n.split('|');n=`🔵 غادر العميل: ${esc(p[1]||'')}`}
+   else n=esc(n||'بدون ملاحظة');
+   return `<div class="activity"><b>${activityName(x.activity_type)}</b><div class="muted">${dateTime(x.created_at)} — ${n}</div>${x.latitude&&x.longitude?`<button class="btn secondary small" style="margin-top:7px" onclick="showSupervisorLocation(${x.latitude},${x.longitude},'${esc(name)} — ${activityName(x.activity_type)}')">📍 الموقع</button>`:''}</div>`
+ }).join(''):'<div class="muted">لا يوجد نشاط اليوم.</div>')`;
+}
+function showSupervisorLocation(lat,lng,title){
+ const modal=$('confirmModal'); if(!modal)return;
+ modal.className='confirm-overlay';
+ modal.innerHTML=`<div class="confirm-box" style="max-width:720px"><div class="sectionhead"><h3>${esc(title)}</h3><button class="btn secondary small" onclick="$('confirmModal').className='hidden'">إغلاق</button></div><div id="supervisorLocationMap" class="map"></div><div class="muted" style="margin-top:8px">الإحداثيات: ${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}</div></div>`;
+ setTimeout(()=>{
+   const map=L.map('supervisorLocationMap').setView([Number(lat),Number(lng)],16);
+   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+   L.marker([Number(lat),Number(lng)]).addTo(map).bindPopup(esc(title)).openPopup();
+ },50);
+}
 async function renderSupervisor(){
  $('content').innerHTML='<div id="loading" class="card">جارٍ تحميل لوحة المتابعة...</div>';
  try{
@@ -178,12 +219,12 @@ async function renderSupervisor(){
    <div id="pwMsg"></div>
   </div>
   <div class="card"><div class="sectionhead"><h3>حالة الموظفين الآن</h3><div class="no-print"><button class="btn secondary small" onclick="printDailyReport()">🖨️ طباعة الكشف اليومي</button> <button class="btn secondary small" onclick="renderSupervisor()">↻ تحديث</button></div></div>
-   <div class="card no-print"><div class="sectionhead"><h3>تحكم المشرف بالحضور والانصراف</h3><span class="muted">علي فقط</span></div><div class="muted">يمكن للمشرف تحضير الموظف أو صرفه أو إعادة فتح دوامه. كل عملية تُسجل في سجل التدقيق.</div></div><div class="empgrid">${emps.map(e=>empCard(e,amap[e.id],latest[e.id])).join('')}</div>
+   <div class="card no-print"><div class="sectionhead"><h3>تحكم المشرف بالحضور والانصراف</h3><span class="muted">علي فقط</span></div><div class="muted">يمكن للمشرف تحضير الموظف أو صرفه أو إعادة فتح دوامه. كل عملية تُسجل في سجل التدقيق.</div></div><div id="supervisorDetails"></div><div class="empgrid">${emps.map(e=>empCard(e,amap[e.id],latest[e.id])).join('')}</div>
   </div>
   <div class="card"><div class="sectionhead"><h3>خريطة مواقع الحضور اليوم</h3><span class="muted">آخر موقع مسجل لكل موظف</span></div><div id="supervisorMap" class="map"></div></div>
   <div class="card"><div class="sectionhead"><h3>سجل الحضور اليوم</h3></div>
    <div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحضور</th><th>التأخير</th><th>الانصراف</th><th>آخر نشاط</th><th class="no-print">تحكم</th></tr></thead>
-   <tbody>${emps.map(e=>{let a=amap[e.id],x=latest[e.id];return `<tr><td><b>${esc(e.name)}</b></td><td>${roleName(e.role)}</td><td>${a?.check_in?'<span class="pill p-green">حاضر</span>':'<span class="pill p-red">لم يسجل</span>'} ${time(a?.check_in)}</td><td>${a?.late_minutes?'<span class="pill p-orange">'+a.late_minutes+' دقيقة</span>':'—'}</td><td>${time(a?.check_out)}</td><td>${activityName(x?.activity_type)}<br><span class="muted">${dateTime(x?.created_at)}</span></td><td class="no-print">${supervisorControls(e,a)}</td></tr>`}).join('')}</tbody></table></div>
+   <tbody>${emps.map(e=>{let a=amap[e.id],x=latest[e.id];return `<tr><td><b>${esc(e.name)}</b></td><td>${roleName(e.role)}</td><td>${a?.check_in?'<span class="pill p-green">حاضر</span>':'<span class="pill p-red">لم يسجل</span>'} ${time(a?.check_in)}</td><td>${a?.late_minutes?'<span class="pill p-orange">'+a.late_minutes+' دقيقة</span>':'—'}</td><td>${time(a?.check_out)}</td><td>${activityName(x?.activity_type)}<br><span class="muted">${dateTime(x?.created_at)}</span></td><td class="no-print"><div class="actions">${supervisorControls(e,a)}<button class="btn secondary small" onclick='supervisorEmployeeDetails(${JSON.stringify(e)},${JSON.stringify(a||null)},${JSON.stringify(x||null)})'>👁</button></div></td></tr>`}).join('')}</tbody></table></div>
   </div>
   <div class="card"><div class="sectionhead"><h3>آخر الزيارات الميدانية</h3><span class="muted">وصول ومغادرة العملاء</span></div>
    <div id="recentVisits">جارٍ التحميل...</div>
@@ -200,7 +241,7 @@ async function renderSupervisor(){
 function empCard(e,a,x){
  let status=a?.check_in?(a?.check_out?'انصرف':'حاضر'):'لم يسجل';
  let cls=status==='حاضر'?'p-green':status==='انصرف'?'p-blue':'p-red';
- return `<div class="emp"><div class="emphead"><div><div class="empname">${esc(e.name)}</div><div class="role">${roleName(e.role)}</div></div><span class="pill ${cls}">${status}</span></div><div class="meta"><div><small>الحضور</small><b>${time(a?.check_in)}</b></div><div><small>التأخير</small><b>${a?.late_minutes||0} د</b></div><div><small>آخر نشاط</small><b>${activityName(x?.activity_type)}</b></div><div><small>آخر تحديث</small><b>${time(x?.created_at)}</b></div></div><div class="actions no-print" style="margin-top:10px">${supervisorControls(e,a)}</div></div>`
+ return `<div class="emp"><div class="emphead"><div><div class="empname">${esc(e.name)}</div><div class="role">${roleName(e.role)}</div></div><span class="pill ${cls}">${status}</span></div><div class="meta"><div><small>الحضور</small><b>${time(a?.check_in)}</b></div><div><small>التأخير</small><b>${a?.late_minutes||0} د</b></div><div><small>آخر نشاط</small><b>${activityName(x?.activity_type)}</b></div><div><small>آخر تحديث</small><b>${time(x?.created_at)}</b></div></div><div class="actions no-print" style="margin-top:10px">${supervisorControls(e,a)}<button class="btn secondary small" onclick='supervisorEmployeeDetails(${JSON.stringify(e)},${JSON.stringify(a||null)},${JSON.stringify(latest[e.id]||null)})'>👁 التفاصيل</button></div></div>`
 }
 
 async function gps(){if(!navigator.geolocation)throw Error('المتصفح لا يدعم تحديد الموقع');return new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(p=>ok(p.coords),()=>no(Error('اسمح بالوصول للموقع ثم حاول مرة أخرى')), {enableHighAccuracy:true,timeout:15000,maximumAge:0}))}
@@ -357,19 +398,21 @@ function initMyMap(lat,lng,name){
  if(Number.isFinite(lat)&&Number.isFinite(lng)) L.marker([lat,lng]).addTo(myLeaflet).bindPopup(`<b>${esc(name)}</b><br>موقع الحضور/النشاط`).openPopup();
 }
 function printDailyReport(){
- const d=today();
  const table=document.querySelector('#content table');
- if(!table){alert('لا يوجد كشف حضور متاح للطباعة.');return}
- const w=window.open('','_blank');
- if(!w){alert('اسمح للنظام بفتح نافذة الطباعة.');return}
- w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كشف الحضور اليومي - ${d}</title>
- <style>body{font-family:Arial,Tahoma,sans-serif;padding:25px;color:#111}h1{text-align:center;font-size:22px;margin-bottom:6px}p{text-align:center;color:#555}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #aaa;padding:9px;font-size:12px;text-align:right}th{background:#eee}footer{margin-top:45px;display:flex;justify-content:space-between}</style></head><body>
- <h1>كشف الحضور اليومي — فرع المدينة</h1><p>التاريخ: ${new Date().toLocaleDateString('ar-SA')}</p>${table.outerHTML}
- <footer><span>المشرف: علي حسن</span><span>التوقيع: __________________</span></footer>
- <script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+ if(!table){alert('لا يوجد كشف متاح للطباعة.');return}
+ const d=today(), w=window.open('','_blank');
+ if(!w){alert('اسمح بفتح نافذة الطباعة.');return}
+ const clean=table.cloneNode(true);
+ clean.querySelectorAll('.no-print').forEach(x=>x.remove());
+ w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كشف الحضور والمتابعة — ${d}</title>
+ <style>@page{size:A4;margin:12mm}body{font-family:Tahoma,Arial,sans-serif;color:#17202a;margin:0}header{border-bottom:3px solid #123c5d;padding-bottom:10px;margin-bottom:12px}h1{font-size:20px;margin:0 0 4px;color:#123c5d}h2{font-size:14px;margin:0}.info{display:flex;justify-content:space-between;font-size:11px;margin-top:8px}.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:12px 0}.box{border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center}.box b{display:block;font-size:16px;margin-top:3px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #bbb;padding:6px}th{background:#eef2f5}footer{margin-top:35px;border-top:1px solid #bbb;padding-top:12px;display:flex;justify-content:space-between;font-size:11px}</style></head><body>
+ <header><h1>حضور ومتابعة فرع المدينة</h1><h2>كشف الحضور والمتابعة اليومي</h2><div class="info"><span>التاريخ: ${new Date().toLocaleDateString('ar-SA')}</span><span>المشرف: علي حسن</span></div></header>
+ <div class="summary"><div class="box">الموظفون<b>${document.querySelectorAll('.emp').length}</b></div><div class="box">الحاضرون<b>${[...document.querySelectorAll('.pill.p-green')].length}</b></div><div class="box">المتأخرون<b>${document.querySelectorAll('.pill.p-orange').length}</b></div><div class="box">المهام<b>${document.querySelectorAll('#recentVisits .activity').length}</b></div><div class="box">التاريخ<b>${d}</b></div></div>
+ ${clean.outerHTML}
+ <footer><span>اعتماد المشرف: علي حسن</span><span>التوقيع: __________________</span><span>صفحة 1</span></footer>
+ <script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script></body></html>`);
  w.document.close();
 }
-
 function getEmployeeName(id,emps){const e=emps.find(x=>x.id===id);return e?.name||'موظف';}
 function renderRecentVisits(acts,emps){
  const el=$('recentVisits'); if(!el)return;
