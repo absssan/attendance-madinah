@@ -227,6 +227,11 @@ async function renderField(){
  await loadField();
 }
 async function loadField(){
+ if(isAfterShift()){
+  const top=document.querySelector('#content');
+  if(top&&!document.querySelector('#shiftClosedBanner')) top.insertAdjacentHTML('afterbegin',`<div id="shiftClosedBanner">${shiftClosedMessage()}</div>`);
+ }
+
  let d=today(),att=await api('/rest/v1/attendance?select=*&employee_id=eq.'+me.id+'&work_date=eq.'+d),a=att[0];
  $('myDay').innerHTML=`<div class="actions">${a?.check_in?`<div class="stat"><div class="label">وقت الحضور</div><div class="num green">${time(a.check_in)}</div></div>`:`<button class="btn" onclick="checkIn()">📍 تسجيل الحضور</button>`}${a?.check_out?`<div class="stat"><div class="label">الانصراف</div><div class="num">${time(a.check_out)}</div></div>`:`${a?.check_in?'<button class="btn secondary" onclick="checkOut()">إنهاء الدوام</button>':''}`}</div>${a?.late_minutes?`<div class="msg err">تأخير اليوم: ${a.late_minutes} دقيقة</div>`:''}`;
  if(a?.start_latitude && a?.start_longitude) initMyMap(Number(a.start_latitude),Number(a.start_longitude),me.name);
@@ -303,6 +308,7 @@ async function attendanceAction(type){
  }catch(e){$('actMsg').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'}
 }
 async function sendActivity(){
+ if(guardAfterShift())return;
  try{let c=await gps();await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,activity_type:$('actType').value,latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:$('actNote').value})});$('actNote').value='';$('actMsg').innerHTML='<div class="msg ok">تم تحديث النشاط والموقع.</div>';await loadField();initMyMap(c.latitude,c.longitude,me.name)}catch(e){$('actMsg').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'}
 }
 
@@ -356,6 +362,7 @@ function renderRecentVisits(acts,emps){
 }
 function setVisitState(text){const e=$('visitState');if(e)e.textContent=text}
 async function recordVisit(kind){
+ if(guardAfterShift())return;
  try{
   const customer=($('visitCustomer')?.value||'').trim();
   if(!customer){$('actMsg').innerHTML='<div class="msg err">اكتب اسم العميل أو الموقع أولًا.</div>';return}
@@ -381,6 +388,46 @@ function initGovMap(lat,lng,name){
  govLeaflet=L.map(el).setView([lat,lng],15);
  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(govLeaflet);
  if(Number.isFinite(lat)&&Number.isFinite(lng))L.marker([lat,lng]).addTo(govLeaflet).bindPopup(`<b>${esc(name)}</b><br>موقع تأكيد الحضور`).openPopup();
+}
+
+const SHIFT_END_HOUR=17, SHIFT_END_MINUTE=0;
+function shiftEndDate(){
+ const d=today();
+ return new Date(d+'T17:00:00+03:00');
+}
+function isAfterShift(){
+ return new Date() >= shiftEndDate();
+}
+function shiftClosedMessage(){
+ return '<div class="msg" style="background:#fff1f1;color:#a33;border:1px solid #f2caca">🔒 انتهى وقت الدوام اليوم الساعة 5:00 م.</div>';
+}
+async function enforceShiftEnd(){
+ if(!me||!me.id)return;
+ if(!isAfterShift())return;
+ const d=today();
+ try{
+  const rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+me.id+'&work_date=eq.'+d);
+  const a=rows[0];
+  if(a?.check_in&&!a?.check_out){
+   await api('/rest/v1/attendance?id=eq.'+a.id,{
+    method:'PATCH',headers:{Prefer:'return=minimal'},
+    body:JSON.stringify({check_out:shiftEndDate().toISOString(),updated_at:new Date().toISOString()})
+   });
+  }
+ }catch(e){console.warn('shift close',e)}
+}
+function scheduleShiftEnd(){
+ enforceShiftEnd();
+ const end=shiftEndDate().getTime();
+ const delay=end-Date.now();
+ if(delay>0&&delay<86400000)setTimeout(()=>location.reload(),delay+1000);
+}
+function guardAfterShift(){
+ if(isAfterShift()){
+  alert('انتهى وقت الدوام اليوم الساعة 5:00 م.');
+  return true;
+ }
+ return false;
 }
 async function renderGov(){
  $('content').innerHTML=`
@@ -421,9 +468,14 @@ async function loadGovAttendance(){
  if(!el)return;
 
  if(!a?.check_in){
-   el.innerHTML=`<div class="msg" style="margin-bottom:12px">لم يتم تسجيل حضورك اليوم.</div>
-   <button class="btn" onclick="confirmGovAttendance()">📍 تسجيل وتأكيد الحضور</button>`;
-   initGovMap(24.47,39.61,'بانتظار تسجيل الحضور');
+   if(isAfterShift()){
+    el.innerHTML=shiftClosedMessage();
+    initGovMap(24.47,39.61,'انتهى الدوام');
+   }else{
+    el.innerHTML=`<div class="msg" style="margin-bottom:12px">لم يتم تسجيل حضورك اليوم.</div>
+    <button class="btn" onclick="confirmGovAttendance()">📍 تسجيل وتأكيد الحضور</button>`;
+    initGovMap(24.47,39.61,'بانتظار تسجيل الحضور');
+   }
    return;
  }
 
@@ -441,6 +493,7 @@ async function loadGovAttendance(){
 }
 
 async function confirmGovAttendance(){
+ if(guardAfterShift())return;
  const msg=$('govAttendanceMsg');
  try{
   msg.innerHTML='<div class="msg">جارٍ الحصول على موقعك...</div>';
@@ -521,6 +574,7 @@ function initGovMap(lat,lng,name){
 }
 
 async function addGov(){
+ if(guardAfterShift())return;
  try{
   const authority=$('authority').value.trim();
   const transaction=$('transaction').value.trim();
@@ -561,6 +615,7 @@ async function loadGov(){
  </div>`).join(''):'<div class="muted">لا توجد مهام مسجلة.</div>';
 }
 
+scheduleShiftEnd();
 if(token){api('/auth/v1/user').then(boot).catch(()=>logout())}
 </script>
 <div id="confirmModal" class="hidden"></div>
