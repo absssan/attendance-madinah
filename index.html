@@ -237,7 +237,12 @@ if(lastVisit){
  const n=String(lastVisit.note||''); const k=n.startsWith('VISIT_ARRIVED')?'وصل':'غادر'; const customer=n.replace(/^VISIT_(ARRIVED|LEFT)\|/,'').split('|')[0]||'الموقع';
  setVisitState(`آخر حركة: ${k} ${customer} — ${dateTime(lastVisit.created_at)}`);
 }
-$('myActs').innerHTML=acts.length?acts.map(x=>`<div class="activity"><b>${activityName(x.activity_type)}</b><div class="muted">${dateTime(x.created_at)} — ${esc(x.note||'بدون ملاحظة')}</div></div>`).join(''):'<div class="muted">لا يوجد نشاط مسجل اليوم.</div>';
+$('myActs').innerHTML=acts.length?acts.map(x=>{
+ let n=String(x.note||'بدون ملاحظة'), display=n;
+ if(n.startsWith('VISIT_ARRIVED|')){let p=n.split('|');display=`🟢 وصل إلى العميل: ${esc(p[1]||'الموقع')}${p[2]?` — ${esc(p[2])}`:''}`}
+ else if(n.startsWith('VISIT_LEFT|')){let p=n.split('|');display=`🔵 غادر العميل: ${esc(p[1]||'الموقع')}`}
+ return `<div class="activity"><b>${activityName(x.activity_type)}</b><div class="muted">${dateTime(x.created_at)} — ${display}</div></div>`
+}).join(''):'<div class="muted">لا يوجد نشاط مسجل اليوم.</div>';
 }
 async function checkIn(){await confirmAndRecordAttendance()}
 async function checkOut(){await attendanceAction('out')}
@@ -368,18 +373,192 @@ async function recordVisit(kind){
 function arriveAtVisit(){recordVisit('ARRIVED')}
 function leaveVisit(){recordVisit('LEFT')}
 
+
+let govLeaflet=null;
+function initGovMap(lat,lng,name){
+ const el=$('govMap'); if(!el||typeof L==='undefined')return;
+ if(govLeaflet){govLeaflet.remove();govLeaflet=null}
+ govLeaflet=L.map(el).setView([lat,lng],15);
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(govLeaflet);
+ if(Number.isFinite(lat)&&Number.isFinite(lng))L.marker([lat,lng]).addTo(govLeaflet).bindPopup(`<b>${esc(name)}</b><br>موقع تأكيد الحضور`).openPopup();
+}
 async function renderGov(){
- $('content').innerHTML=`<div class="card"><div class="sectionhead"><h3>مهامي الحكومية</h3><button class="btn secondary small" onclick="loadGov()">↻ تحديث</button></div>
- <div class="field"><label>الجهة الحكومية</label><input id="authority" placeholder="مثال: وزارة الموارد البشرية"></div><div class="field"><label>المعاملة</label><input id="transaction" placeholder="رقم أو وصف المعاملة"></div><div class="field"><label>الحالة</label><select id="taskStatus"><option value="NEW">جديدة</option><option value="IN_PROGRESS">تحت الإجراء</option><option value="FOLLOW_UP">تحتاج متابعة</option><option value="COMPLETED">مكتملة</option><option value="REJECTED">مرفوضة</option></select></div><div class="field"><label>ملاحظات</label><input id="taskNote" placeholder="ملاحظات"></div><button class="btn" onclick="addGov()">إضافة المهمة</button><div id="govMsg"></div></div>
- <div class="card"><div id="govList">جارٍ التحميل...</div></div>`;
+ $('content').innerHTML=`
+ <div class="card">
+  <div class="sectionhead"><h3>الحضور اليومي</h3><span class="pill p-blue">${today()}</span></div>
+  <div id="govAttendance">جارٍ تحميل حالة الحضور...</div>
+  <div id="govAttendanceMsg"></div>
+ </div>
+ <div class="card">
+  <div class="sectionhead"><h3>موقع حضور يحيى</h3><span class="muted">يُحفظ الموقع عند تأكيد الحضور</span></div>
+  <div id="govMap" class="map"></div>
+ </div>
+ <div class="card">
+  <div class="sectionhead"><h3>مهامي الحكومية</h3><button class="btn secondary small" onclick="loadGov()">↻ تحديث</button></div>
+  <div class="field"><label>الجهة الحكومية</label><input id="authority" placeholder="مثال: وزارة الموارد البشرية"></div>
+  <div class="field"><label>المعاملة</label><input id="transaction" placeholder="رقم أو وصف المعاملة"></div>
+  <div class="field"><label>الحالة</label>
+   <select id="taskStatus">
+    <option value="NEW">جديدة</option><option value="IN_PROGRESS">تحت الإجراء</option>
+    <option value="FOLLOW_UP">تحتاج متابعة</option><option value="COMPLETED">مكتملة</option><option value="REJECTED">مرفوضة</option>
+   </select>
+  </div>
+  <div class="field"><label>ملاحظات</label><input id="taskNote" placeholder="ملاحظات"></div>
+  <button class="btn" onclick="addGov()">إضافة المهمة</button><div id="govMsg"></div>
+ </div>
+ <div class="card"><div id="govList">جارٍ تحميل...</div></div>`;
+
+ await loadGovAttendance();
  await loadGov();
+ setTimeout(()=>window.dispatchEvent(new Event('resize')),100);
 }
+
+async function loadGovAttendance(){
+ const d=today();
+ const rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+me.id+'&work_date=eq.'+d);
+ const a=rows[0];
+ const el=$('govAttendance');
+ if(!el)return;
+
+ if(!a?.check_in){
+   el.innerHTML=`<div class="msg" style="margin-bottom:12px">لم يتم تسجيل حضورك اليوم.</div>
+   <button class="btn" onclick="confirmGovAttendance()">📍 تسجيل وتأكيد الحضور</button>`;
+   initGovMap(24.47,39.61,'بانتظار تسجيل الحضور');
+   return;
+ }
+
+ el.innerHTML=`
+ <div class="grid">
+  <div class="stat"><div class="label">الحضور</div><div class="num green">${time(a.check_in)}</div></div>
+  <div class="stat"><div class="label">التأخير</div><div class="num">${a.late_minutes||0} د</div></div>
+ </div>
+ <div class="actions" style="margin-top:12px">
+  ${a.check_out?`<div class="msg ok">✓ تم إنهاء الدوام: ${time(a.check_out)}</div>`:`<button class="btn secondary" onclick="govCheckOut()">إنهاء الدوام</button>`}
+ </div>`;
+
+ if(a.start_latitude&&a.start_longitude)
+   initGovMap(Number(a.start_latitude),Number(a.start_longitude),me.name);
+}
+
+async function confirmGovAttendance(){
+ const msg=$('govAttendanceMsg');
+ try{
+  msg.innerHTML='<div class="msg">جارٍ الحصول على موقعك...</div>';
+  const c=await gps();
+  const now=new Date();
+  const ok=await showAttendanceConfirmation(c,now);
+  if(!ok){msg.innerHTML='';return;}
+
+  const d=today();
+  const shift=new Date(d+'T08:00:00+03:00');
+  const late=Math.max(0,Math.floor((now-shift)/60000));
+  const rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+me.id+'&work_date=eq.'+d);
+
+  const payload={
+   employee_id:me.id,work_date:d,check_in:now.toISOString(),
+   start_latitude:c.latitude,start_longitude:c.longitude,start_accuracy:c.accuracy,
+   status:late?'LATE':'PRESENT',late_minutes:late,updated_at:now.toISOString()
+  };
+
+  let attendanceId=rows[0]?.id;
+  if(attendanceId){
+   await api('/rest/v1/attendance?id=eq.'+attendanceId,{
+    method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)
+   });
+  }else{
+   const created=await api('/rest/v1/attendance',{
+    method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)
+   });
+   attendanceId=created?.[0]?.id;
+  }
+
+  await api('/rest/v1/activities',{
+   method:'POST',headers:{Prefer:'return=minimal'},
+   body:JSON.stringify({
+    employee_id:me.id,attendance_id:attendanceId,activity_type:'OTHER',
+    latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,
+    note:'تأكيد حضور — يحيى الكلابي — معقب ومراجعات حكومية'
+   })
+  });
+
+  msg.innerHTML='<div class="msg ok">✓ تم تأكيد حضورك وتسجيل موقعك بنجاح.</div>';
+  await loadGovAttendance();
+ }catch(e){
+  msg.innerHTML='<div class="msg err">تعذر تسجيل الحضور: '+esc(e.message)+'</div>';
+ }
+}
+
+async function govCheckOut(){
+ const msg=$('govAttendanceMsg');
+ try{
+  const d=today();
+  const rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+me.id+'&work_date=eq.'+d);
+  if(!rows.length)throw Error('يجب تسجيل الحضور أولًا');
+
+  await api('/rest/v1/attendance?id=eq.'+rows[0].id,{
+   method:'PATCH',headers:{Prefer:'return=minimal'},
+   body:JSON.stringify({check_out:new Date().toISOString(),updated_at:new Date().toISOString()})
+  });
+
+  msg.innerHTML='<div class="msg ok">✓ تم إنهاء الدوام.</div>';
+  await loadGovAttendance();
+ }catch(e){
+  msg.innerHTML='<div class="msg err">'+esc(e.message)+'</div>';
+ }
+}
+
+function initGovMap(lat,lng,name){
+ const el=$('govMap');
+ if(!el||typeof L==='undefined')return;
+ if(window.govLeaflet){window.govLeaflet.remove();window.govLeaflet=null}
+ window.govLeaflet=L.map(el).setView([lat,lng],15);
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(window.govLeaflet);
+ if(Number.isFinite(lat)&&Number.isFinite(lng)){
+  L.marker([lat,lng]).addTo(window.govLeaflet)
+   .bindPopup(`<b>${esc(name)}</b><br>موقع تأكيد الحضور`).openPopup();
+ }
+ setTimeout(()=>window.govLeaflet?.invalidateSize(),150);
+}
+
 async function addGov(){
- try{await api('/rest/v1/government_tasks',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,authority:$('authority').value.trim(),transaction:$('transaction').value.trim(),status:$('taskStatus').value,notes:$('taskNote').value,started_at:new Date().toISOString()})});$('authority').value='';$('transaction').value='';$('taskNote').value='';$('govMsg').innerHTML='<div class="msg ok">تمت إضافة المهمة.</div>';await loadGov()}catch(e){$('govMsg').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'}
+ try{
+  const authority=$('authority').value.trim();
+  const transaction=$('transaction').value.trim();
+  if(!authority||!transaction)throw Error('أدخل الجهة والمعاملة أولًا');
+
+  await api('/rest/v1/government_tasks',{
+   method:'POST',headers:{Prefer:'return=minimal'},
+   body:JSON.stringify({
+    employee_id:me.id,authority,transaction,
+    status:$('taskStatus').value,
+    notes:$('taskNote').value.trim(),
+    started_at:new Date().toISOString()
+   })
+  });
+
+  $('authority').value='';
+  $('transaction').value='';
+  $('taskNote').value='';
+  $('govMsg').innerHTML='<div class="msg ok">✓ تمت إضافة المهمة.</div>';
+  await loadGov();
+ }catch(e){
+  $('govMsg').innerHTML='<div class="msg err">'+esc(e.message)+'</div>';
+ }
 }
+
 async function loadGov(){
- let rows=await api('/rest/v1/government_tasks?select=*&employee_id=eq.'+me.id+'&order=created_at.desc&limit=50');
- $('govList').innerHTML=rows.length?rows.map(t=>`<div class="activity"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(t.authority)}</b><span class="pill p-blue">${taskName(t.status)}</span></div><div style="margin-top:5px">${esc(t.transaction)}</div><div class="muted">${dateTime(t.created_at)} — ${esc(t.notes||'')}</div></div>`).join(''):'<div class="muted">لا توجد مهام.</div>'
+ const rows=await api('/rest/v1/government_tasks?select=*&employee_id=eq.'+me.id+'&order=created_at.desc&limit=50');
+ const el=$('govList');
+ if(!el)return;
+ el.innerHTML=rows.length?rows.map(t=>`
+ <div class="activity">
+  <div style="display:flex;justify-content:space-between;gap:8px">
+   <b>${esc(t.authority||'جهة غير محددة')}</b>
+   <span class="pill p-blue">${taskName(t.status)}</span>
+  </div>
+  <div style="margin-top:5px">${esc(t.transaction||'')}</div>
+  <div class="muted">${dateTime(t.created_at)}${t.notes?' — '+esc(t.notes):''}</div>
+ </div>`).join(''):'<div class="muted">لا توجد مهام مسجلة.</div>';
 }
 
 if(token){api('/auth/v1/user').then(boot).catch(()=>logout())}
