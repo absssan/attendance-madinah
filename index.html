@@ -123,6 +123,27 @@ async function boot(user){
 }
 $('loginBtn').onclick=login;$('logout').onclick=logout;
 
+
+async function supervisorAttendanceAction(employeeId,action){
+ const labels={CHECK_IN:'تحضير الموظف',CHECK_OUT:'صرف الموظف',REOPEN:'إعادة فتح الدوام'};
+ const label=labels[action]||action;
+ const reason=prompt(`سبب ${label} (اختياري):`,'تحكم المشرف');
+ if(reason===null)return;
+ try{
+  await api('/rest/v1/rpc/supervisor_attendance_action',{
+   method:'POST',
+   body:JSON.stringify({p_employee_id:employeeId,p_action:action,p_reason:reason||null})
+  });
+  alert(`✓ تم ${label} بنجاح`);
+  await renderSupervisor();
+ }catch(e){alert('تعذر تنفيذ العملية: '+e.message)}
+}
+function supervisorControls(e,a){
+ if(e.role==='SUPERVISOR')return '';
+ if(!a?.check_in)return `<button class="btn small" onclick="supervisorAttendanceAction('${e.id}','CHECK_IN')">🟢 تحضير</button>`;
+ if(!a?.check_out)return `<button class="btn danger small" onclick="supervisorAttendanceAction('${e.id}','CHECK_OUT')">🔴 صرف</button>`;
+ return `<button class="btn secondary small" onclick="supervisorAttendanceAction('${e.id}','REOPEN')">↩ إعادة فتح</button>`;
+}
 async function renderSupervisor(){
  $('content').innerHTML='<div id="loading" class="card">جارٍ تحميل لوحة المتابعة...</div>';
  try{
@@ -157,12 +178,12 @@ async function renderSupervisor(){
    <div id="pwMsg"></div>
   </div>
   <div class="card"><div class="sectionhead"><h3>حالة الموظفين الآن</h3><div class="no-print"><button class="btn secondary small" onclick="printDailyReport()">🖨️ طباعة الكشف اليومي</button> <button class="btn secondary small" onclick="renderSupervisor()">↻ تحديث</button></div></div>
-   <div class="empgrid">${emps.map(e=>empCard(e,amap[e.id],latest[e.id])).join('')}</div>
+   <div class="card no-print"><div class="sectionhead"><h3>تحكم المشرف بالحضور والانصراف</h3><span class="muted">علي فقط</span></div><div class="muted">يمكن للمشرف تحضير الموظف أو صرفه أو إعادة فتح دوامه. كل عملية تُسجل في سجل التدقيق.</div></div><div class="empgrid">${emps.map(e=>empCard(e,amap[e.id],latest[e.id])).join('')}</div>
   </div>
   <div class="card"><div class="sectionhead"><h3>خريطة مواقع الحضور اليوم</h3><span class="muted">آخر موقع مسجل لكل موظف</span></div><div id="supervisorMap" class="map"></div></div>
   <div class="card"><div class="sectionhead"><h3>سجل الحضور اليوم</h3></div>
-   <div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحضور</th><th>التأخير</th><th>الانصراف</th><th>آخر نشاط</th></tr></thead>
-   <tbody>${emps.map(e=>{let a=amap[e.id],x=latest[e.id];return `<tr><td><b>${esc(e.name)}</b></td><td>${roleName(e.role)}</td><td>${a?.check_in?'<span class="pill p-green">حاضر</span>':'<span class="pill p-red">لم يسجل</span>'} ${time(a?.check_in)}</td><td>${a?.late_minutes?'<span class="pill p-orange">'+a.late_minutes+' دقيقة</span>':'—'}</td><td>${time(a?.check_out)}</td><td>${activityName(x?.activity_type)}<br><span class="muted">${dateTime(x?.created_at)}</span></td></tr>`}).join('')}</tbody></table></div>
+   <div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحضور</th><th>التأخير</th><th>الانصراف</th><th>آخر نشاط</th><th class="no-print">تحكم</th></tr></thead>
+   <tbody>${emps.map(e=>{let a=amap[e.id],x=latest[e.id];return `<tr><td><b>${esc(e.name)}</b></td><td>${roleName(e.role)}</td><td>${a?.check_in?'<span class="pill p-green">حاضر</span>':'<span class="pill p-red">لم يسجل</span>'} ${time(a?.check_in)}</td><td>${a?.late_minutes?'<span class="pill p-orange">'+a.late_minutes+' دقيقة</span>':'—'}</td><td>${time(a?.check_out)}</td><td>${activityName(x?.activity_type)}<br><span class="muted">${dateTime(x?.created_at)}</span></td><td class="no-print">${supervisorControls(e,a)}</td></tr>`}).join('')}</tbody></table></div>
   </div>
   <div class="card"><div class="sectionhead"><h3>آخر الزيارات الميدانية</h3><span class="muted">وصول ومغادرة العملاء</span></div>
    <div id="recentVisits">جارٍ التحميل...</div>
@@ -179,7 +200,7 @@ async function renderSupervisor(){
 function empCard(e,a,x){
  let status=a?.check_in?(a?.check_out?'انصرف':'حاضر'):'لم يسجل';
  let cls=status==='حاضر'?'p-green':status==='انصرف'?'p-blue':'p-red';
- return `<div class="emp"><div class="emphead"><div><div class="empname">${esc(e.name)}</div><div class="role">${roleName(e.role)}</div></div><span class="pill ${cls}">${status}</span></div><div class="meta"><div><small>الحضور</small><b>${time(a?.check_in)}</b></div><div><small>التأخير</small><b>${a?.late_minutes||0} د</b></div><div><small>آخر نشاط</small><b>${activityName(x?.activity_type)}</b></div><div><small>آخر تحديث</small><b>${time(x?.created_at)}</b></div></div></div>`
+ return `<div class="emp"><div class="emphead"><div><div class="empname">${esc(e.name)}</div><div class="role">${roleName(e.role)}</div></div><span class="pill ${cls}">${status}</span></div><div class="meta"><div><small>الحضور</small><b>${time(a?.check_in)}</b></div><div><small>التأخير</small><b>${a?.late_minutes||0} د</b></div><div><small>آخر نشاط</small><b>${activityName(x?.activity_type)}</b></div><div><small>آخر تحديث</small><b>${time(x?.created_at)}</b></div></div><div class="actions no-print" style="margin-top:10px">${supervisorControls(e,a)}</div></div>`
 }
 
 async function gps(){if(!navigator.geolocation)throw Error('المتصفح لا يدعم تحديد الموقع');return new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(p=>ok(p.coords),()=>no(Error('اسمح بالوصول للموقع ثم حاول مرة أخرى')), {enableHighAccuracy:true,timeout:15000,maximumAge:0}))}
