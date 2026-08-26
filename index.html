@@ -167,18 +167,31 @@ async function showEmployeeDay(id,name){
  const d=today();
  const rows=await api('/rest/v1/activities?select=*&employee_id=eq.'+id+'&order=created_at.asc&limit=200');
  const acts=rows.filter(x=>String(x.created_at||'').slice(0,10)===d);
- host.innerHTML=`<h4>سجل ${esc(name)} اليوم</h4>`+(acts.length?acts.map(x=>{
-   let n=String(x.note||'');
-   if(n.startsWith('VISIT_ARRIVED|')){let p=n.split('|');n=`🟢 وصل إلى العميل: ${esc(p[1]||'')}${p[2]?' — '+esc(p[2]):''}`}
-   else if(n.startsWith('VISIT_LEFT|')){let p=n.split('|');n=`🔵 غادر العميل: ${esc(p[1]||'')}`}
-   else n=esc(n||'بدون ملاحظة');
-   return `<div class="activity"><b>${activityName(x.activity_type)}</b><div class="muted">${dateTime(x.created_at)} — ${n}</div>${x.latitude&&x.longitude?`<button class="btn secondary small" style="margin-top:7px" onclick="showSupervisorLocation(${x.latitude},${x.longitude},'${esc(name)} — ${activityName(x.activity_type)}')">📍 الموقع</button>`:''}</div>`
- }).join(''):'<div class="muted">لا يوجد نشاط اليوم.</div>')`;
+ let html='<h4>سجل '+esc(name)+' اليوم</h4>';
+ if(!acts.length){host.innerHTML=html+'<div class="muted">لا يوجد نشاط اليوم.</div>';return}
+ html+=acts.map(x=>{
+   let n=esc(x.note||'بدون ملاحظة');
+   if(String(x.note||'').startsWith('VISIT_ARRIVED|')){
+     const p=String(x.note).split('|');
+     n='🟢 وصل إلى العميل: '+esc(p[1]||'')+(p[2]?' — '+esc(p[2]):'');
+   }else if(String(x.note||'').startsWith('VISIT_LEFT|')){
+     const p=String(x.note).split('|');
+     n='🔵 غادر العميل: '+esc(p[1]||'');
+   }
+   let loc='';
+   if(x.latitude&&x.longitude){
+     const t=encodeURIComponent(String(name)+' — '+activityName(x.activity_type));
+     loc='<button class="btn secondary small" style="margin-top:7px" onclick="showSupervisorLocation('+Number(x.latitude)+','+Number(x.longitude)+',decodeURIComponent(\''+t+'\'))">📍 الموقع</button>';
+   }
+   return '<div class="activity"><b>'+activityName(x.activity_type)+'</b><div class="muted">'+dateTime(x.created_at)+' — '+n+'</div>'+loc+'</div>';
+ }).join('');
+ host.innerHTML=html;
 }
 function showSupervisorLocation(lat,lng,title){
  const modal=$('confirmModal'); if(!modal)return;
  modal.className='confirm-overlay';
- modal.innerHTML=`<div class="confirm-box" style="max-width:720px"><div class="sectionhead"><h3>${esc(title)}</h3><button class="btn secondary small" onclick="$('confirmModal').className='hidden'">إغلاق</button></div><div id="supervisorLocationMap" class="map"></div><div class="muted" style="margin-top:8px">الإحداثيات: ${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}</div></div>`;
+ modal.innerHTML='<div class="confirm-box" style="max-width:720px"><div class="sectionhead"><h3>'+esc(title)+'</h3><button id="closeSupervisorMap" class="btn secondary small">إغلاق</button></div><div id="supervisorLocationMap" class="map"></div><div class="muted" style="margin-top:8px">الإحداثيات: '+Number(lat).toFixed(6)+', '+Number(lng).toFixed(6)+'</div></div>';
+ $('closeSupervisorMap').onclick=()=>modal.className='hidden';
  setTimeout(()=>{
    const map=L.map('supervisorLocationMap').setView([Number(lat),Number(lng)],16);
    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
