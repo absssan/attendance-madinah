@@ -1,5 +1,3 @@
-Blame
-
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -29,6 +27,21 @@ button,input,select{font:inherit}button{border:0;cursor:pointer}.hidden{display:
 .footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
 @media(max-width:850px){.grid{grid-template-columns:repeat(2,1fr)}.empgrid{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.top{padding:18px 14px 25px}.brand h1{font-size:18px}.wrap{padding:0 10px}.grid{grid-template-columns:1fr 1fr;gap:8px}.stat{padding:13px}.stat .num{font-size:23px}.empgrid{grid-template-columns:1fr}.card{padding:14px;border-radius:15px}.actions{grid-template-columns:1fr}.userbar{align-items:flex-start}.brand{align-items:flex-start}}
+</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<style>
+.map{height:330px;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.confirm-overlay{position:fixed;inset:0;background:#061524aa;display:flex;align-items:center;justify-content:center;padding:18px;z-index:9999}
+.confirm-box{width:min(440px,100%);background:#fff;border-radius:20px;padding:20px;box-shadow:0 20px 60px #0005}
+.confirm-box h3{margin:0 0 8px}.confirm-info{background:#f8fafc;border-radius:13px;padding:13px;margin:12px 0}
+.confirm-info div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e9eef3;font-size:13px}.confirm-info div:last-child{border-bottom:0}
+.print-only{display:none}
+@media print{
+ body{background:#fff!important}.top,.footer,#loginCard,#app>.card.userbar,.no-print{display:none!important}
+ .wrap{margin:0!important;padding:0!important;max-width:none!important}.card{box-shadow:none!important;border:0!important}
+ .print-only{display:block!important}.map{display:none!important}
+ table{min-width:0!important}th,td{font-size:10px;padding:7px}
+}
 </style>
 </head>
 <body>
@@ -83,10 +96,19 @@ setInterval(setClock,1000);setClock();
 async function login(){
  const username=$('username').value.trim().toLowerCase(),password=$('password').value;
  if(!username||!password)return showLogin('أدخل اسم المستخدم وكلمة المرور.');
- const email=username+'@attendance.local';
  const b=$('loginBtn');b.disabled=true;b.textContent='جارٍ الدخول...';
- try{let d=await api('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password}),auth:false});save(d);await boot(d.user)}
- catch(e){showLogin('فشل تسجيل الدخول: '+e.message)}
+ try{
+   const r=await fetch(SB_URL+'/functions/v1/ensure-username-login',{
+     method:'POST',
+     headers:{'Content-Type':'application/json','apikey':SB_KEY},
+     body:JSON.stringify({username,code:password})
+   });
+   const info=await r.json();
+   if(!r.ok) throw Error(info.error||'اسم المستخدم أو كلمة المرور غير صحيحة');
+   const email=info.email||username+'@attendance.local';
+   let d=await api('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password}),auth:false});
+   save(d);await boot(d.user);
+ }catch(e){showLogin('فشل تسجيل الدخول: '+e.message)}
  finally{b.disabled=false;b.textContent='دخول النظام'}
 }
 function showLogin(t,ok=false){$('loginMsg').className='msg '+(ok?'ok':'err');$('loginMsg').textContent=t}
@@ -134,16 +156,22 @@ async function renderSupervisor(){
    </div>
    <div id="pwMsg"></div>
   </div>
-  <div class="card"><div class="sectionhead"><h3>حالة الموظفين الآن</h3><button class="btn secondary small" onclick="renderSupervisor()">↻ تحديث</button></div>
+  <div class="card"><div class="sectionhead"><h3>حالة الموظفين الآن</h3><div class="no-print"><button class="btn secondary small" onclick="printDailyReport()">🖨️ طباعة الكشف اليومي</button> <button class="btn secondary small" onclick="renderSupervisor()">↻ تحديث</button></div></div>
    <div class="empgrid">${emps.map(e=>empCard(e,amap[e.id],latest[e.id])).join('')}</div>
   </div>
+  <div class="card"><div class="sectionhead"><h3>خريطة مواقع الحضور اليوم</h3><span class="muted">آخر موقع مسجل لكل موظف</span></div><div id="supervisorMap" class="map"></div></div>
   <div class="card"><div class="sectionhead"><h3>سجل الحضور اليوم</h3></div>
    <div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحضور</th><th>التأخير</th><th>الانصراف</th><th>آخر نشاط</th></tr></thead>
    <tbody>${emps.map(e=>{let a=amap[e.id],x=latest[e.id];return `<tr><td><b>${esc(e.name)}</b></td><td>${roleName(e.role)}</td><td>${a?.check_in?'<span class="pill p-green">حاضر</span>':'<span class="pill p-red">لم يسجل</span>'} ${time(a?.check_in)}</td><td>${a?.late_minutes?'<span class="pill p-orange">'+a.late_minutes+' دقيقة</span>':'—'}</td><td>${time(a?.check_out)}</td><td>${activityName(x?.activity_type)}<br><span class="muted">${dateTime(x?.created_at)}</span></td></tr>`}).join('')}</tbody></table></div>
   </div>
+  <div class="card"><div class="sectionhead"><h3>آخر الزيارات الميدانية</h3><span class="muted">وصول ومغادرة العملاء</span></div>
+   <div id="recentVisits">جارٍ التحميل...</div>
+  </div>
   <div class="card"><div class="sectionhead"><h3>تنبيهات المتابعة</h3></div>
    ${emps.filter(e=>!amap[e.id]?.check_in).map(e=>`<div class="notice"><div>⚠️</div><div><strong>${esc(e.name)} لم يسجل الحضور</strong><span>لم يظهر تسجيل حضور لهذا اليوم حتى الآن.</span></div></div>`).join('')||'<div class="muted">لا توجد تنبيهات حضور.</div>'}
   </div>`;
+  initSupervisorMap(amap, emps);
+  renderRecentVisits(acts, emps);
   const sel=$('pwEmployee');
   if(sel) sel.innerHTML=emps.map(e=>`<option value="${e.id}">${esc(e.name)} — ${esc(roleName(e.role))}</option>`).join('');
  }catch(e){$('content').innerHTML='<div class="card msg err">تعذر تحميل لوحة المشرف: '+esc(e.message)+'</div>'}
@@ -182,18 +210,79 @@ async function resetEmployeePassword(){
 
 async function renderField(){
  $('content').innerHTML=`<div class="card"><div class="sectionhead"><h3>دوامي اليوم</h3><span class="pill p-blue">${today()}</span></div><div id="myDay">جارٍ التحميل...</div></div>
- <div class="card"><h3>تحديث النشاط الميداني</h3><div class="field"><label>الحالة</label><select id="actType"><option value="VISIT_CUSTOMER">زيارة عميل</option><option value="TRAVELING">في الطريق</option><option value="BRANCH">في الفرع</option><option value="OTHER">نشاط آخر</option></select></div><div class="field"><label>ملاحظة</label><input id="actNote" placeholder="مثال: زيارة عميل / متابعة عرض"></div><button class="btn" onclick="sendActivity()">تحديث النشاط + الموقع</button><div id="actMsg"></div></div>
+ <div class="card"><div class="sectionhead"><h3>موقع حضوري</h3><span class="muted">يظهر بعد تسجيل الحضور أو النشاط</span></div><div id="myMap" class="map"></div></div>
+ <div class="card">
+ <h3>المتابعة الميدانية</h3>
+ <div class="field"><label>اسم العميل / الموقع</label><input id="visitCustomer" placeholder="مثال: مؤسسة فلان"></div>
+ <div class="actions">
+  <button class="btn" onclick="arriveAtVisit()">📍 وصلت للموقع</button>
+  <button class="btn secondary" onclick="leaveVisit()">🚗 غادرت الموقع</button>
+ </div>
+ <div class="field"><label>حالة النشاط</label><select id="actType"><option value="VISIT_CUSTOMER">زيارة عميل</option><option value="TRAVELING">في الطريق</option><option value="BRANCH">في الفرع</option><option value="OTHER">نشاط آخر</option></select></div>
+ <div class="field"><label>ملاحظة</label><input id="actNote" placeholder="مثال: مقابلة العميل / متابعة عرض / طلب تسعير"></div>
+ <button class="btn secondary" onclick="sendActivity()">تحديث النشاط + الموقع</button>
+ <div id="visitState" class="muted" style="margin-top:10px"></div><div id="actMsg"></div>
+</div>
  <div class="card"><h3>سجل نشاطي اليوم</h3><div id="myActs">جارٍ التحميل...</div></div>`;
  await loadField();
 }
 async function loadField(){
  let d=today(),att=await api('/rest/v1/attendance?select=*&employee_id=eq.'+me.id+'&work_date=eq.'+d),a=att[0];
  $('myDay').innerHTML=`<div class="actions">${a?.check_in?`<div class="stat"><div class="label">وقت الحضور</div><div class="num green">${time(a.check_in)}</div></div>`:`<button class="btn" onclick="checkIn()">📍 تسجيل الحضور</button>`}${a?.check_out?`<div class="stat"><div class="label">الانصراف</div><div class="num">${time(a.check_out)}</div></div>`:`${a?.check_in?'<button class="btn secondary" onclick="checkOut()">إنهاء الدوام</button>':''}`}</div>${a?.late_minutes?`<div class="msg err">تأخير اليوم: ${a.late_minutes} دقيقة</div>`:''}`;
+ if(a?.start_latitude && a?.start_longitude) initMyMap(Number(a.start_latitude),Number(a.start_longitude),me.name);
+ else initMyMap(24.47,39.61,'بانتظار تسجيل الموقع');
  let acts=await api('/rest/v1/activities?select=*&employee_id=eq.'+me.id+'&created_at=gte.'+encodeURIComponent(new Date(d+'T00:00:00+03:00').toISOString())+'&order=created_at.desc&limit=30');
- $('myActs').innerHTML=acts.length?acts.map(x=>`<div class="activity"><b>${activityName(x.activity_type)}</b><div class="muted">${dateTime(x.created_at)} — ${esc(x.note||'بدون ملاحظة')}</div></div>`).join(''):'<div class="muted">لا يوجد نشاط مسجل اليوم.</div>';
+ const lastVisit=acts.find(x=>String(x.note||'').startsWith('VISIT_'));
+if(lastVisit){
+ const n=String(lastVisit.note||''); const k=n.startsWith('VISIT_ARRIVED')?'وصل':'غادر'; const customer=n.replace(/^VISIT_(ARRIVED|LEFT)\|/,'').split('|')[0]||'الموقع';
+ setVisitState(`آخر حركة: ${k} ${customer} — ${dateTime(lastVisit.created_at)}`);
 }
-async function checkIn(){await attendanceAction('in')}
+$('myActs').innerHTML=acts.length?acts.map(x=>`<div class="activity"><b>${activityName(x.activity_type)}</b><div class="muted">${dateTime(x.created_at)} — ${esc(x.note||'بدون ملاحظة')}</div></div>`).join(''):'<div class="muted">لا يوجد نشاط مسجل اليوم.</div>';
+}
+async function checkIn(){await confirmAndRecordAttendance()}
 async function checkOut(){await attendanceAction('out')}
+
+async function confirmAndRecordAttendance(){
+ try{
+  const c=await gps(), now=new Date();
+  const confirmed=await showAttendanceConfirmation(c,now);
+  if(!confirmed)return;
+  await saveAttendanceIn(c,now);
+ }catch(e){$('actMsg').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'}
+}
+function showAttendanceConfirmation(c,now){
+ return new Promise(resolve=>{
+  const m=$('confirmModal');
+  m.className='confirm-overlay';
+  m.innerHTML=`<div class="confirm-box">
+   <h3>تأكيد تسجيل الحضور</h3>
+   <div class="muted">راجع البيانات قبل اعتماد حضورك.</div>
+   <div class="confirm-info">
+    <div><span>الموظف</span><b>${esc(me.name)}</b></div>
+    <div><span>التاريخ</span><b>${now.toLocaleDateString('ar-SA')}</b></div>
+    <div><span>الوقت</span><b>${now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</b></div>
+    <div><span>الموقع</span><b>${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}</b></div>
+    <div><span>دقة GPS</span><b>${Math.round(c.accuracy||0)} متر</b></div>
+   </div>
+   <div class="actions"><button class="btn secondary" id="cancelConfirm">إلغاء</button><button class="btn" id="okConfirm">✓ تأكيد الحضور</button></div>
+  </div>`;
+  $('cancelConfirm').onclick=()=>{m.className='hidden';resolve(false)};
+  $('okConfirm').onclick=()=>{m.className='hidden';resolve(true)};
+ });
+}
+async function saveAttendanceIn(c,now){
+ const d=today(),rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+me.id+'&work_date=eq.'+d);
+ let shift=new Date(d+'T08:00:00+03:00'),late=Math.max(0,Math.floor((now-shift)/60000));
+ let payload={employee_id:me.id,work_date:d,check_in:now.toISOString(),start_latitude:c.latitude,start_longitude:c.longitude,start_accuracy:c.accuracy,status:late?'LATE':'PRESENT',late_minutes:late,updated_at:now.toISOString()};
+ let attendanceId;
+ if(rows.length){attendanceId=rows[0].id;await api('/rest/v1/attendance?id=eq.'+attendanceId,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)})}
+ else{let created=await api('/rest/v1/attendance',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)});attendanceId=created?.[0]?.id||null}
+ await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,attendance_id:attendanceId,activity_type:'OTHER',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:'تأكيد الحضور'})});
+ await loadField();
+ $('actMsg').innerHTML='<div class="msg ok">✓ تم تأكيد حضورك وتسجيل موقع الحضور.</div>';
+ initMyMap(c.latitude,c.longitude,me.name);
+}
+
 async function attendanceAction(type){
  try{
   const c=await gps(),d=today(),rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+me.id+'&work_date=eq.'+d);
@@ -209,8 +298,75 @@ async function attendanceAction(type){
  }catch(e){$('actMsg').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'}
 }
 async function sendActivity(){
- try{let c=await gps();await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,activity_type:$('actType').value,latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:$('actNote').value})});$('actNote').value='';$('actMsg').innerHTML='<div class="msg ok">تم تحديث النشاط والموقع.</div>';await loadField()}catch(e){$('actMsg').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'}
+ try{let c=await gps();await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,activity_type:$('actType').value,latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:$('actNote').value})});$('actNote').value='';$('actMsg').innerHTML='<div class="msg ok">تم تحديث النشاط والموقع.</div>';await loadField();initMyMap(c.latitude,c.longitude,me.name)}catch(e){$('actMsg').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'}
 }
+
+
+let supervisorLeaflet=null,myLeaflet=null;
+function initSupervisorMap(amap,emps){
+ const el=$('supervisorMap'); if(!el||typeof L==='undefined')return;
+ if(supervisorLeaflet){supervisorLeaflet.remove();supervisorLeaflet=null}
+ const points=[];
+ emps.forEach(e=>{
+  const a=amap[e.id];
+  if(a?.start_latitude && a?.start_longitude) points.push([Number(a.start_latitude),Number(a.start_longitude),e.name,a]);
+ });
+ const center=points.length?[points[0][0],points[0][1]]:[24.47,39.61];
+ supervisorLeaflet=L.map(el).setView(center,points.length?12:6);
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(supervisorLeaflet);
+ points.forEach(p=>L.marker([p[0],p[1]]).addTo(supervisorLeaflet).bindPopup(`<b>${esc(p[2])}</b><br>الحضور: ${time(p[3].check_in)}<br>التأخير: ${p[3].late_minutes||0} دقيقة`));
+ if(points.length>1) supervisorLeaflet.fitBounds(points.map(p=>[p[0],p[1]]),{padding:[25,25]});
+}
+function initMyMap(lat,lng,name){
+ const el=$('myMap'); if(!el||typeof L==='undefined')return;
+ if(myLeaflet){myLeaflet.remove();myLeaflet=null}
+ myLeaflet=L.map(el).setView([lat,lng],15);
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(myLeaflet);
+ if(Number.isFinite(lat)&&Number.isFinite(lng)) L.marker([lat,lng]).addTo(myLeaflet).bindPopup(`<b>${esc(name)}</b><br>موقع الحضور/النشاط`).openPopup();
+}
+function printDailyReport(){
+ const d=today();
+ const table=document.querySelector('#content table');
+ if(!table){alert('لا يوجد كشف حضور متاح للطباعة.');return}
+ const w=window.open('','_blank');
+ if(!w){alert('اسمح للنظام بفتح نافذة الطباعة.');return}
+ w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كشف الحضور اليومي - ${d}</title>
+ <style>body{font-family:Arial,Tahoma,sans-serif;padding:25px;color:#111}h1{text-align:center;font-size:22px;margin-bottom:6px}p{text-align:center;color:#555}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #aaa;padding:9px;font-size:12px;text-align:right}th{background:#eee}footer{margin-top:45px;display:flex;justify-content:space-between}</style></head><body>
+ <h1>كشف الحضور اليومي — فرع المدينة</h1><p>التاريخ: ${new Date().toLocaleDateString('ar-SA')}</p>${table.outerHTML}
+ <footer><span>المشرف: علي حسن</span><span>التوقيع: __________________</span></footer>
+ <script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+ w.document.close();
+}
+
+function getEmployeeName(id,emps){const e=emps.find(x=>x.id===id);return e?.name||'موظف';}
+function renderRecentVisits(acts,emps){
+ const el=$('recentVisits'); if(!el)return;
+ const rows=acts.filter(x=>String(x.note||'').startsWith('VISIT_')).slice(0,20);
+ el.innerHTML=rows.length?rows.map(x=>{
+   const note=String(x.note||'');
+   const arrived=note.startsWith('VISIT_ARRIVED');
+   const customer=note.replace(/^VISIT_(ARRIVED|LEFT)\\|/,'').split('|')[0]||'موقع غير محدد';
+   return `<div class="activity"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(getEmployeeName(x.employee_id,emps))}</b><span class="pill ${arrived?'p-green':'p-blue'}">${arrived?'وصل للموقع':'غادر الموقع'}</span></div><div>${esc(customer)}</div><div class="muted">${dateTime(x.created_at)} — ${x.latitude&&x.longitude?`${Number(x.latitude).toFixed(5)}, ${Number(x.longitude).toFixed(5)}`:''}</div></div>`
+ }).join(''):'<div class="muted">لا توجد زيارات مسجلة.</div>';
+}
+function setVisitState(text){const e=$('visitState');if(e)e.textContent=text}
+async function recordVisit(kind){
+ try{
+  const customer=($('visitCustomer')?.value||'').trim();
+  if(!customer){$('actMsg').innerHTML='<div class="msg err">اكتب اسم العميل أو الموقع أولًا.</div>';return}
+  const c=await gps(), d=today();
+  const note=`VISIT_${kind}|${customer}|${$('actNote')?.value||''}`;
+  await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({
+   employee_id:me.id,activity_type:'VISIT_CUSTOMER',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note
+  })});
+  setVisitState(kind==='ARRIVED'?`✓ وصلت إلى ${customer} — ${time(new Date())}`:`✓ غادرت ${customer} — ${time(new Date())}`);
+  $('actMsg').innerHTML='<div class="msg ok">تم تسجيل الموقع والوقت بنجاح.</div>';
+  if($('actNote'))$('actNote').value='';
+  await loadField(); initMyMap(c.latitude,c.longitude,me.name);
+ }catch(e){$('actMsg').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'}
+}
+function arriveAtVisit(){recordVisit('ARRIVED')}
+function leaveVisit(){recordVisit('LEFT')}
 
 async function renderGov(){
  $('content').innerHTML=`<div class="card"><div class="sectionhead"><h3>مهامي الحكومية</h3><button class="btn secondary small" onclick="loadGov()">↻ تحديث</button></div>
@@ -228,5 +384,7 @@ async function loadGov(){
 
 if(token){api('/auth/v1/user').then(boot).catch(()=>logout())}
 </script>
+<div id="confirmModal" class="hidden"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 </body>
 </html>
