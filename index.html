@@ -121,8 +121,26 @@ async function boot(user){
   if(me.role==='SUPERVISOR')renderSupervisor();else if(me.role==='FIELD_REP')renderField();else if(me.role==='GOVERNMENT_REP')renderGov();else renderField();
  }catch(e){showLogin('تعذر تحميل النظام: '+e.message)}
 }
-$('loginBtn').onclick=login;$('logout').onclick=logout;
+$('loginBtn').addEventListener('click', function(e){
+  e.preventDefault();
+  login();
+});
 
+$('password').addEventListener('keydown', function(e){
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    login();
+  }
+});
+
+$('username').addEventListener('keydown', function(e){
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    login();
+  }
+});
+
+$('logout').addEventListener('click', logout);
 
 async function supervisorAttendanceAction(employeeId,action){
  const labels={CHECK_IN:'تحضير الموظف',CHECK_OUT:'صرف الموظف',REOPEN:'إعادة فتح الدوام'};
