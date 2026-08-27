@@ -198,6 +198,45 @@ function attendanceModeFromActivities(acts,a){const x=acts.find(z=>a?.id&&z.atte
 function shiftEndDate(){return new Date(today()+'T'+SHIFT_END+':00+03:00')}function shiftStartDate(){return new Date(today()+'T'+SHIFT_START+':00+03:00')}function afterShift(){return new Date()>=shiftEndDate()}function shiftMessage(){return '<div class="msg err">🔒 انتهى وقت الدوام اليوم الساعة '+SHIFT_END+'.</div>'}function guardAfterShift(){if(afterShift()){alert('انتهى وقت الدوام اليوم الساعة '+SHIFT_END+'.');return true}return false}
 async function login(){const username=$('username').value.trim().toLowerCase(),password=$('password').value;if(!username||!password){showLogin('أدخل اسم المستخدم وكلمة المرور.');return}const b=$('loginBtn');b.disabled=true;b.textContent='جارٍ الدخول...';try{const r=await fetch(SB_URL+'/functions/v1/ensure-username-login',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({username,code:password})});const info=await r.json();if(!r.ok)throw Error(info.error||'اسم المستخدم أو كلمة المرور غير صحيحة');const email=info.email||username+'@attendance.local';let d=await api('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password}),auth:false});save(d);await boot(d.user)}catch(e){showLogin('فشل تسجيل الدخول: '+e.message)}finally{b.disabled=false;b.textContent='دخول النظام'}}
 function showLogin(t,ok=false){$('loginMsg').className='msg '+(ok?'ok':'err');$('loginMsg').textContent=t}
+
+function configureNav(){
+  const nav=$('appNav'); if(!nav)return;
+  if(me?.role==='SUPERVISOR'){
+    nav.innerHTML=`<button data-nav="dashboard" onclick="appNavigate('dashboard')"><span>⌂</span> لوحة المشرف</button><button data-nav="employees" onclick="appNavigate('employees')"><span>👥</span> الموظفون</button><button data-nav="quote" onclick="appNavigate('quote')"><span>🧾</span> التسعير</button><button data-nav="reports" onclick="appNavigate('reports')"><span>▥</span> التقارير</button><button data-nav="notifications" onclick="appNavigate('notifications')"><span>🔔</span> التنبيهات</button><button data-nav="settings" onclick="appNavigate('settings')"><span>⚙</span> الإعدادات</button><button onclick="logout()"><span>⇥</span> تسجيل الخروج</button>`;
+  }else if(me?.role==='FIELD_REP'){
+    nav.innerHTML=`<button data-nav="dashboard" onclick="appNavigate('dashboard')"><span>⌂</span> دوامي اليوم</button><button data-nav="quote" onclick="appNavigate('quote')"><span>🧾</span> التسعير</button><button data-nav="report" onclick="appNavigate('report')"><span>🖨️</span> تقريري</button><button onclick="logout()"><span>⇥</span> تسجيل الخروج</button>`;
+  }else{
+    nav.innerHTML=`<button data-nav="dashboard" onclick="appNavigate('dashboard')"><span>⌂</span> دوامي اليوم</button><button onclick="logout()"><span>⇥</span> تسجيل الخروج</button>`;
+  }
+  setActiveNav(me?.role==='SUPERVISOR'?'dashboard':'dashboard');
+}
+
+function setActiveNav(key){
+  document.querySelectorAll('#appNav button').forEach(b=>b.classList.remove('active'));
+  const b=document.querySelector('#appNav button[data-nav="'+key+'"]');
+  if(b)b.classList.add('active');
+}
+async function appNavigate(key){
+  if(me?.role==='SUPERVISOR'){
+    setActiveNav(key);
+    if(key==='dashboard')return renderSupervisor();
+    if(key==='employees')return renderEmployeeAdmin();
+    if(key==='quote')return renderQuotePage();
+    if(key==='reports')return renderReportsCenter();
+    if(key==='notifications')return renderNotificationsCenter();
+    if(key==='settings')return renderSettingsCenter();
+    return;
+  }
+  if(me?.role==='FIELD_REP'){
+    if(key==='dashboard'){setActiveNav('dashboard'); return renderField();}
+    if(key==='quote'){setActiveNav('quote'); return renderQuotePage();}
+    if(key==='report'){setActiveNav('report'); return renderReportPage();}
+    alert('هذه القائمة غير متاحة لهذا الدور.'); return;
+  }
+  if(key==='dashboard'){setActiveNav('dashboard');return me?.role==='GOVERNMENT_REP'?renderGov():renderField();}
+  alert('هذه القائمة متاحة للمشرف فقط.');
+}
+
 async function boot(user){try{let rows=await api('/rest/v1/employees?select=*&auth_user_id=eq.'+encodeURIComponent(user.id));if(!rows.length){showLogin('تم الدخول لكن الحساب غير مربوط بموظف.');logout();return}me=rows[0];const existingLogo=document.querySelector('.brandLogo');const loginLogo=document.querySelector('.loginLogo');if(existingLogo&&loginLogo)loginLogo.src=existingLogo.src;const weeklyOff=isWeeklyOffForEmployee(me);if(weeklyOff){token='';localStorage.removeItem('att_token');showLogin(weeklyOff);return}await loadShiftSettings();await autoClose();$('loginCard').classList.add('hidden');$('app').classList.remove('hidden');$('userName').textContent=me.name;$('userRole').textContent=roleName(me.role);$('avatar').textContent=(me.name||'?').trim().charAt(0);configureNav();if(me.role==='SUPERVISOR')renderSupervisor();else if(me.role==='GOVERNMENT_REP')renderGov();else renderField()}catch(e){showLogin('تعذر تحميل النظام: '+e.message)}}
 $('loginBtn').onclick=e=>{e.preventDefault();login()};$('password').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();login()}};$('username').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();login()}};$('logout').onclick=logout;
 async function gps(){if(!navigator.geolocation)throw Error('المتصفح لا يدعم تحديد الموقع');return new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(p=>ok(p.coords),()=>no(Error('اسمح بالوصول للموقع ثم حاول مرة أخرى')),{enableHighAccuracy:true,timeout:15000,maximumAge:0}))}
