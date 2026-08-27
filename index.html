@@ -121,22 +121,58 @@ async function api(path,opt={}){let r=await fetch(SB_URL+path,{...opt,headers:{.
 function save(d){token=d.access_token;localStorage.setItem('att_token',token)}function logout(){token='';localStorage.removeItem('att_token');location.reload()}
 function today(){return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'})}function time(x){return x?new Date(x).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}):'—'}function dateTime(x){return x?new Date(x).toLocaleString('ar-SA',{dateStyle:'short',timeStyle:'short'}):'—'}
 function setClock(){let d=new Date();$('clock').innerHTML=d.toLocaleDateString('ar-SA',{weekday:'long',day:'numeric',month:'long'})+'<br>'+d.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}setInterval(setClock,1000);setClock();
-let SHIFT_END='17:00',SHIFT_START='08:00',shiftSettingId='';function shiftEndDate(){return new Date(today()+'T'+SHIFT_END+':00+03:00')}function shiftStartDate(){return new Date(today()+'T'+SHIFT_START+':00+03:00')}function afterShift(){return new Date()>=shiftEndDate()}function shiftMessage(){return '<div class="msg err">🔒 انتهى وقت الدوام اليوم الساعة '+SHIFT_END+'.</div>'}function guardAfterShift(){if(afterShift()){alert('انتهى وقت الدوام اليوم الساعة '+SHIFT_END+'.');return true}return false}
+let SHIFT_END='17:00',SHIFT_START='08:00',shiftSettingId='';
+const BRANCH_LAT=24.48124,BRANCH_LNG=39.62947,BRANCH_RADIUS=200;
+function distanceMeters(lat1,lon1,lat2,lon2){const R=6371000,toRad=x=>x*Math.PI/180,dLat=toRad(lat2-lat1),dLon=toRad(lon2-lon1),a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))}
+function fieldAttendanceInfo(c){const d=distanceMeters(Number(c.latitude),Number(c.longitude),BRANCH_LAT,BRANCH_LNG);return {distance:Math.round(d),inside:d<=BRANCH_RADIUS,type:d<=BRANCH_RADIUS?'BRANCH':'FIELD'}}
+function attendanceModeFromActivities(acts,a){const x=acts.find(z=>a?.id&&z.attendance_id===a.id&&String(z.note||'').startsWith('ATTENDANCE_MODE:'));if(!x)return null;const s=String(x.note||'').replace('ATTENDANCE_MODE:','');const [type,...r]=s.split('|');return {type:type==='FIELD'?'ميداني':'بالفرع',reason:r.join('|')}}
+function shiftEndDate(){return new Date(today()+'T'+SHIFT_END+':00+03:00')}function shiftStartDate(){return new Date(today()+'T'+SHIFT_START+':00+03:00')}function afterShift(){return new Date()>=shiftEndDate()}function shiftMessage(){return '<div class="msg err">🔒 انتهى وقت الدوام اليوم الساعة '+SHIFT_END+'.</div>'}function guardAfterShift(){if(afterShift()){alert('انتهى وقت الدوام اليوم الساعة '+SHIFT_END+'.');return true}return false}
 async function login(){const username=$('username').value.trim().toLowerCase(),password=$('password').value;if(!username||!password){showLogin('أدخل اسم المستخدم وكلمة المرور.');return}const b=$('loginBtn');b.disabled=true;b.textContent='جارٍ الدخول...';try{const r=await fetch(SB_URL+'/functions/v1/ensure-username-login',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({username,code:password})});const info=await r.json();if(!r.ok)throw Error(info.error||'اسم المستخدم أو كلمة المرور غير صحيحة');const email=info.email||username+'@attendance.local';let d=await api('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password}),auth:false});save(d);await boot(d.user)}catch(e){showLogin('فشل تسجيل الدخول: '+e.message)}finally{b.disabled=false;b.textContent='دخول النظام'}}
 function showLogin(t,ok=false){$('loginMsg').className='msg '+(ok?'ok':'err');$('loginMsg').textContent=t}
 async function boot(user){try{let rows=await api('/rest/v1/employees?select=*&auth_user_id=eq.'+encodeURIComponent(user.id));if(!rows.length){showLogin('تم الدخول لكن الحساب غير مربوط بموظف.');logout();return}me=rows[0];await loadShiftSettings();$('loginCard').classList.add('hidden');$('app').classList.remove('hidden');$('userName').textContent=me.name;$('userRole').textContent=roleName(me.role);$('avatar').textContent=(me.name||'?').trim().charAt(0);if(me.role==='SUPERVISOR')renderSupervisor();else if(me.role==='GOVERNMENT_REP')renderGov();else renderField()}catch(e){showLogin('تعذر تحميل النظام: '+e.message)}}
 $('loginBtn').onclick=e=>{e.preventDefault();login()};$('password').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();login()}};$('username').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();login()}};$('logout').onclick=logout;
 async function gps(){if(!navigator.geolocation)throw Error('المتصفح لا يدعم تحديد الموقع');return new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(p=>ok(p.coords),()=>no(Error('اسمح بالوصول للموقع ثم حاول مرة أخرى')),{enableHighAccuracy:true,timeout:15000,maximumAge:0}))}
-function attendanceConfirmation(c,now){return new Promise(resolve=>{let m=$('confirmModal');m.className='confirm-overlay';m.innerHTML=`<div class="confirm-box"><h3>تأكيد تسجيل الحضور</h3><div class="muted">راجع بيانات الحضور والموقع قبل الاعتماد.</div><div class="confirm-info"><div><span>الموظف</span><b>${esc(me.name)}</b></div><div><span>التاريخ</span><b>${now.toLocaleDateString('ar-SA')}</b></div><div><span>الوقت</span><b>${now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</b></div><div><span>الموقع</span><b>${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}</b></div><div><span>دقة GPS</span><b>${Math.round(c.accuracy||0)} متر</b></div></div><div class="actions"><button class="btn secondary" id="cancelConfirm">إلغاء</button><button class="btn" id="okConfirm">✓ تأكيد الحضور</button></div></div>`;$('cancelConfirm').onclick=()=>{m.className='hidden';resolve(false)};$('okConfirm').onclick=()=>{m.className='hidden';resolve(true)}})}
-async function saveIn(employeeId,c,now,note='تأكيد الحضور'){let d=today(),rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+employeeId+'&work_date=eq.'+d);let shift=shiftStartDate(),late=Math.max(0,Math.floor((now-shift)/60000));let payload={employee_id:employeeId,work_date:d,check_in:now.toISOString(),start_latitude:c.latitude,start_longitude:c.longitude,start_accuracy:c.accuracy,status:late?'LATE':'PRESENT',late_minutes:late,updated_at:now.toISOString()};let id=rows[0]?.id;if(id)await api('/rest/v1/attendance?id=eq.'+id,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)});else{id=(await api('/rest/v1/attendance',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)}))?.[0]?.id}await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:employeeId,attendance_id:id||null,activity_type:'OTHER',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note})});return id}
-async function selfCheckIn(){if(guardAfterShift())return;try{let c=await gps(),now=new Date();if(!await attendanceConfirmation(c,now))return;await saveIn(me.id,c,now,'تأكيد الحضور');await renderSupervisor()}catch(e){alert('تعذر تسجيل الحضور: '+e.message)}}
+function attendanceConfirmation(c,now){
+  const info=fieldAttendanceInfo(c), isField=me?.role==='FIELD_REP' && !info.inside;
+  return new Promise(resolve=>{
+    let m=$('confirmModal');m.className='confirm-overlay';
+    m.innerHTML=`<div class="confirm-box">
+      <h3>تأكيد تسجيل الحضور</h3>
+      <div class="muted">راجع بيانات الحضور والموقع قبل الاعتماد.</div>
+      <div class="confirm-info">
+        <div><span>الموظف</span><b>${esc(me.name)}</b></div>
+        <div><span>الوقت</span><b>${now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</b></div>
+        <div><span>نوع الحضور</span><b>${isField?'🚗 حضور ميداني':'🏢 حضور بالفرع'}</b></div>
+        <div><span>المسافة عن المعرض</span><b>${info.distance} متر</b></div>
+        <div><span>الموقع</span><b>${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}</b></div>
+        <div><span>دقة GPS</span><b>${Math.round(c.accuracy||0)} متر</b></div>
+      </div>
+      ${isField?`<div class="field"><label>سبب الحضور الميداني <span style="color:#dc2626">*</span></label>
+        <textarea id="fieldReason" rows="3" placeholder="مثال: زيارة عميل / مقابلة عميل / تسليم طلب / مهمة خارج الفرع"></textarea>
+        <div class="muted">لا يمكن اعتماد الحضور الميداني بدون كتابة السبب.</div>
+      </div>`:''}
+      <div class="actions"><button class="btn secondary" id="cancelConfirm">إلغاء</button><button class="btn" id="okConfirm">✓ تأكيد الحضور</button></div>
+    </div>`;
+    $('cancelConfirm').onclick=()=>{m.className='hidden';resolve(null)};
+    $('okConfirm').onclick=()=>{
+      const reason=isField?String($('fieldReason')?.value||'').trim():'';
+      if(isField&&!reason){alert('يجب كتابة سبب الحضور الميداني قبل التأكيد.');$('fieldReason')?.focus();return}
+      m.className='hidden';resolve({type:isField?'FIELD':'BRANCH',reason,info});
+    };
+  });
+}
+async function saveIn(employeeId,c,now,note='تأكيد الحضور',attendanceMode=null){let d=today(),rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+employeeId+'&work_date=eq.'+d);let shift=shiftStartDate(),late=Math.max(0,Math.floor((now-shift)/60000));let payload={employee_id:employeeId,work_date:d,check_in:now.toISOString(),start_latitude:c.latitude,start_longitude:c.longitude,start_accuracy:c.accuracy,status:late?'LATE':'PRESENT',late_minutes:late,updated_at:now.toISOString()};let id=rows[0]?.id;if(id)await api('/rest/v1/attendance?id=eq.'+id,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)});else{id=(await api('/rest/v1/attendance',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)}))?.[0]?.id}await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:employeeId,attendance_id:id||null,activity_type:'OTHER',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:attendanceMode?('ATTENDANCE_MODE:'+attendanceMode.type+'|'+(attendanceMode.reason||'')):note})});return id}
+async function selfCheckIn(){if(guardAfterShift())return;try{let c=await gps(),now=new Date();const confirmation=await attendanceConfirmation(c,now);if(!confirmation)return;await saveIn(me.id,c,now,'تأكيد الحضور',confirmation);await renderSupervisor()}catch(e){alert('تعذر تسجيل الحضور: '+e.message)}}
 async function selfCheckOut(){try{let d=today(),rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+me.id+'&work_date=eq.'+d);if(!rows.length)throw Error('يجب تسجيل الحضور أولًا');await api('/rest/v1/attendance?id=eq.'+rows[0].id,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({check_out:new Date().toISOString(),updated_at:new Date().toISOString()})});await renderSupervisor()}catch(e){alert('تعذر تسجيل الانصراف: '+e.message)}}
 async function supervisorAttendanceAction(employeeId,action){const labels={CHECK_IN:'تحضير الموظف',CHECK_OUT:'صرف الموظف',REOPEN:'إعادة فتح الدوام'};let reason=prompt(`سبب ${labels[action]||action} (اختياري):`,'تحكم المشرف');if(reason===null)return;try{await api('/rest/v1/rpc/supervisor_attendance_action',{method:'POST',body:JSON.stringify({p_employee_id:employeeId,p_action:action,p_reason:reason||null})});await renderSupervisor()}catch(e){alert('تعذر تنفيذ العملية: '+e.message)}}
 function effectiveCheckOut(a){return a?.check_out||(afterShift()&&a?.check_in?shiftEndDate().toISOString():null)}
 function statusOf(a){if(a?.check_in)return effectiveCheckOut(a)?'انصرف':'حاضر';return afterShift()?'غائب':'لم يسجل'}function statusPill(a){let s=statusOf(a);return `<span class="pill ${s==='حاضر'?'p-green':s==='انصرف'?'p-blue':s==='غائب'?'p-red':'p-orange'}">${s}</span>`}
 function supervisorControls(e,a){if(e.role==='SUPERVISOR')return '';if(!a?.check_in)return `<button class="btn small" onclick="supervisorAttendanceAction('${e.id}','CHECK_IN')">🟢 تحضير</button>`;if(!a?.check_out)return `<button class="btn danger small" onclick="supervisorAttendanceAction('${e.id}','CHECK_OUT')">🔴 صرف</button>`;return `<button class="btn secondary small" onclick="supervisorAttendanceAction('${e.id}','REOPEN')">↩ إعادة فتح</button>`}
 function mapPopup(e,a,last){let loc=last?.latitude&&last?.longitude?`${Number(last.latitude).toFixed(6)}, ${Number(last.longitude).toFixed(6)}`:a?.start_latitude&&a?.start_longitude?`${Number(a.start_latitude).toFixed(6)}, ${Number(a.start_longitude).toFixed(6)}`:'لا يوجد';return `<b>${esc(e.name)}</b><br>الحالة: ${statusOf(a)}<br>الحضور: ${time(a?.check_in)}<br>آخر موقع: ${loc}<br>آخر تحديث: ${dateTime(last?.created_at||a?.check_in)}`}
-function initSupervisorMap(emps,att,acts){const el=$('supervisorMap');if(!el||typeof L==='undefined')return;if(supervisorMap)supervisorMap.remove();let pts=[];emps.forEach(e=>{let a=att[e.id],last=acts.find(x=>x.employee_id===e.id&&x.latitude!=null&&x.longitude!=null);let lat=last?.latitude??a?.start_latitude,lng=last?.longitude??a?.start_longitude;if(lat!=null&&lng!=null)pts.push([Number(lat),Number(lng),e,a,last])});let center=pts.length?[pts[0][0],pts[0][1]]:[24.47,39.61];supervisorMap=L.map(el).setView(center,12);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(supervisorMap);pts.forEach(p=>L.marker([p[0],p[1]]).addTo(supervisorMap).bindPopup(mapPopup(p[2],p[3],p[4])));if(pts.length>1)supervisorMap.fitBounds(pts.map(p=>[p[0],p[1]]),{padding:[25,25]});}
+function initSupervisorMap(emps,att,acts){const el=$('supervisorMap');if(!el||typeof L==='undefined')return;if(supervisorMap)supervisorMap.remove();let pts=[];emps.forEach(e=>{let a=att[e.id],last=acts.find(x=>x.employee_id===e.id&&x.latitude!=null&&x.longitude!=null);let lat=last?.latitude??a?.start_latitude,lng=last?.longitude??a?.start_longitude;if(lat!=null&&lng!=null)pts.push([Number(lat),Number(lng),e,a,last])});let center=pts.length?[pts[0][0],pts[0][1]]:[24.47,39.61];supervisorMap=L.map(el).setView(center,12);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(supervisorMap);
+L.circle([BRANCH_LAT,BRANCH_LNG],{radius:BRANCH_RADIUS}).addTo(supervisorMap).bindPopup('<b>معرض شركة خالد عبدالله الصافي — فرع المدينة</b><br>نطاق الحضور بالفرع: '+BRANCH_RADIUS+' متر');
+L.marker([BRANCH_LAT,BRANCH_LNG]).addTo(supervisorMap).bindPopup('<b>موقع المعرض</b><br>24.481240, 39.629470');
+pts.forEach(p=>L.marker([p[0],p[1]]).addTo(supervisorMap).bindPopup(mapPopup(p[2],p[3],p[4])));if(pts.length>1)supervisorMap.fitBounds(pts.map(p=>[p[0],p[1]]),{padding:[25,25]});}
 async function showEmployeeDetails(id){let e=(await api('/rest/v1/employees?select=*&id=eq.'+id))[0];if(!e)return;let d=today(),a=(await api('/rest/v1/attendance?select=*&employee_id=eq.'+id+'&work_date=eq.'+d))[0];let acts=await api('/rest/v1/activities?select=*&employee_id=eq.'+id+'&order=created_at.asc&limit=200');let todayActs=acts.filter(x=>String(x.created_at||'').slice(0,10)===d);let last=[...todayActs].reverse().find(x=>x.latitude!=null&&x.longitude!=null);let modal=$('confirmModal');modal.className='confirm-overlay';modal.innerHTML=`<div class="confirm-box"><div class="sectionhead"><h3>${esc(e.name)} — التفاصيل اليومية</h3><button id="closeD" class="btn secondary small">إغلاق</button></div><div class="grid"><div class="stat"><div class="label">الحالة</div><div class="num">${statusOf(a)}</div></div><div class="stat"><div class="label">الحضور</div><div class="num">${time(a?.check_in)}</div></div><div class="stat"><div class="label">التأخير</div><div class="num orange">${a?.late_minutes||0} د</div></div><div class="stat"><div class="label">الانصراف</div><div class="num">${time(effectiveCheckOut(a))}</div></div></div><div class="actions no-print" style="margin-top:12px"><button class="btn secondary" onclick="showLocation(${last?.latitude??a?.start_latitude},${last?.longitude??a?.start_longitude},'آخر موقع — ${esc(e.name)}')">📍 آخر موقع</button>${e.role==='FIELD_REP'?`<button class="btn" onclick="printRepReport('${e.id}')">🖨️ تقرير المندوب</button>`:''}</div><div class="card"><h3>الأنشطة والزيارات اليوم</h3>${todayActs.length?todayActs.map(x=>{let n=String(x.note||'بدون ملاحظة');let title=activityName(x.activity_type);if(n.startsWith('VISIT_ARRIVED|')){let p=n.split('|');title='🟢 وصول: '+(p[1]||'موقع')}else if(n.startsWith('VISIT_LEFT|')){let p=n.split('|');title='🔵 مغادرة: '+(p[1]||'موقع')}let loc=x.latitude!=null?`<button class="btn secondary small" onclick="showLocation(${Number(x.latitude)},${Number(x.longitude)},'${esc(title).replace(/'/g,"&#39;")}')">📍 الموقع</button>`:'';return `<div class="activity"><b>${esc(title)}</b><div class="muted">${dateTime(x.created_at)} — ${esc(n)}</div>${loc}</div>`}).join(''):'<div class="muted">لا يوجد نشاط اليوم.</div>'}</div></div>`;$('closeD').onclick=()=>modal.className='hidden'}
 function showLocation(lat,lng,title){if(lat==null||lng==null){alert('لا يوجد موقع مسجل.');return}let modal=$('confirmModal');modal.className='confirm-overlay';modal.innerHTML=`<div class="confirm-box"><div class="sectionhead"><h3>${esc(title)}</h3><button id="closeM" class="btn secondary small">إغلاق</button></div><div id="singleMap" class="map"></div><div class="muted" style="margin-top:8px">الإحداثيات: ${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}</div></div>`;$('closeM').onclick=()=>modal.className='hidden';setTimeout(()=>{let m=L.map('singleMap').setView([Number(lat),Number(lng)],16);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(m);L.marker([Number(lat),Number(lng)]).addTo(m).bindPopup(esc(title)).openPopup()},50)}
 function lastLocationFor(acts,eid){return acts.find(x=>x.employee_id===eid&&x.latitude!=null&&x.longitude!=null)}
@@ -191,13 +227,89 @@ function attendanceReminderPanel(emps,att){
   </div>`;
 }
 
+
+function manualAttendanceModal(employeeId){
+  if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
+  const e=(window._employees||[]).find(x=>x.id===employeeId);
+  if(!e){alert('لم يتم العثور على الموظف.');return}
+  const d=today();
+  const modal=$('confirmModal');
+  modal.className='confirm-overlay';
+  modal.innerHTML=`<div class="confirm-box">
+    <div class="sectionhead">
+      <h3>✏️ تعديل حضور الموظف</h3>
+      <button id="closeManual" class="btn secondary small">إغلاق</button>
+    </div>
+    <div class="confirm-info">
+      <div><span>الموظف</span><b>${esc(e.name)}</b></div>
+      <div><span>التاريخ</span><b>${d}</b></div>
+      <div><span>الصلاحية</span><b>المشرف فقط</b></div>
+    </div>
+    <div class="field"><label>وقت الحضور</label><input id="manualIn" type="time"></div>
+    <div class="field"><label>وقت الانصراف</label><input id="manualOut" type="time"></div>
+    <div class="field"><label>سبب التعديل <span style="color:#dc2626">*</span></label>
+      <input id="manualReason" placeholder="مثال: كان متواجدًا وتعذر تسجيل الحضور">
+    </div>
+    <div id="manualMsg"></div>
+    <div class="actions">
+      <button class="btn secondary" id="cancelManual">إلغاء</button>
+      <button class="btn" id="saveManual">💾 حفظ التعديل</button>
+    </div>
+  </div>`;
+  $('closeManual').onclick=$('cancelManual').onclick=()=>modal.className='hidden';
+
+  // Load current values if available.
+  api('/rest/v1/attendance?select=*&employee_id=eq.'+encodeURIComponent(employeeId)+'&work_date=eq.'+d)
+    .then(rows=>{
+      const a=rows[0];
+      if(a?.check_in)$('manualIn').value=new Date(a.check_in).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      if(a?.check_out)$('manualOut').value=new Date(a.check_out).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    }).catch(()=>{});
+
+  $('saveManual').onclick=async()=>{
+    const start=$('manualIn').value, end=$('manualOut').value, reason=$('manualReason').value.trim();
+    if(!start){$('manualMsg').innerHTML='<div class="msg err">أدخل وقت الحضور.</div>';return}
+    if(!reason){$('manualMsg').innerHTML='<div class="msg err">سبب التعديل إلزامي.</div>';return}
+    if(end && end<start){$('manualMsg').innerHTML='<div class="msg err">وقت الانصراف يجب أن يكون بعد الحضور.</div>';return}
+    try{
+      const inDate=new Date(d+'T'+start+':00+03:00');
+      const outDate=end?new Date(d+'T'+end+':00+03:00'):null;
+      const shift=new Date(d+'T'+SHIFT_START+':00+03:00');
+      const late=Math.max(0,Math.floor((inDate-shift)/60000));
+      const payload={
+        employee_id:employeeId,work_date:d,check_in:inDate.toISOString(),
+        check_out:outDate?outDate.toISOString():null,
+        status:late?'LATE':'PRESENT',late_minutes:late,
+        updated_at:new Date().toISOString()
+      };
+      const rows=await api('/rest/v1/attendance?select=id&employee_id=eq.'+encodeURIComponent(employeeId)+'&work_date=eq.'+d);
+      if(rows[0]?.id){
+        await api('/rest/v1/attendance?id=eq.'+rows[0].id,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)});
+      }else{
+        await api('/rest/v1/attendance',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)});
+      }
+      try{
+        await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({
+          employee_id:employeeId,activity_type:'OTHER',
+          note:'تعديل حضور يدوي بواسطة المشرف: '+reason
+        })});
+      }catch(_){}
+      modal.className='hidden';
+      await renderSupervisor();
+      alert('✓ تم تعديل سجل الحضور بنجاح.');
+    }catch(err){
+      $('manualMsg').innerHTML='<div class="msg err">تعذر حفظ التعديل: '+esc(err.message)+'</div>';
+    }
+  };
+}
+
 async function renderSupervisor(){
  $('content').innerHTML='<div class="card">جارٍ تحميل لوحة المشرف...</div>';
  try{let d=today();let [emps,attRows,acts,tasks]=await Promise.all([api('/rest/v1/employees?select=*&active=eq.true&order=name'),api('/rest/v1/attendance?select=*&work_date=eq.'+d),api('/rest/v1/activities?select=*&order=created_at.desc&limit=1000'),api('/rest/v1/government_tasks?select=*&order=created_at.desc&limit=200')]);window._employees=emps; window.shiftStartSetting=(emps.find(e=>e.role==='SUPERVISOR')?.shift_start||'08:00'); let att=Object.fromEntries(attRows.map(x=>[x.employee_id,x]));let present=attRows.filter(x=>x.check_in).length,late=attRows.filter(x=>Number(x.late_minutes||0)>0).length,out=attRows.filter(x=>x.check_out).length,absent=afterShift()?emps.filter(e=>!att[e.id]?.check_in).length:0,openTasks=tasks.filter(x=>!['COMPLETED','REJECTED'].includes(x.status)).length;let my=att[me.id];let reps=emps.filter(e=>e.role==='FIELD_REP');
  $('content').innerHTML=`<div class="card"><div class="sectionhead"><h3>دوامي كمشرف — ${d}</h3><span class="pill p-purple">مشرف الفرع</span></div><div class="grid"><div class="stat"><div class="label">الحالة</div><div class="num">${statusOf(my)}</div></div><div class="stat"><div class="label">وقت الحضور</div><div class="num green">${time(my?.check_in)}</div></div><div class="stat"><div class="label">التأخير</div><div class="num orange">${my?.late_minutes||0} د</div></div><div class="stat"><div class="label">الانصراف</div><div class="num">${time(my?.check_out)}</div></div></div><div class="actions no-print" style="margin-top:12px">${my?.check_in?my?.check_out?'<div class="msg ok">✓ تم تسجيل انصرافك: '+time(my.check_out)+'</div>':'<button class="btn secondary" onclick="selfCheckOut()">🚪 تأكيد الانصراف</button>':'<button class="btn" onclick="selfCheckIn()">📍 تأكيد حضوري بالموقع</button>'}</div></div>
  <div class="grid"><div class="stat"><div class="label">الحاضرون</div><div class="num green">${present}</div></div><div class="stat"><div class="label">المتأخرون</div><div class="num orange">${late}</div></div><div class="stat"><div class="label">الغائبون</div><div class="num red">${absent}</div></div><div class="stat"><div class="label">المهام الحكومية المفتوحة</div><div class="num purple">${openTasks}</div></div></div><div class="card"><div class="sectionhead"><h3>إدارة كلمات مرور الموظفين</h3><span class="pill p-purple">للمشرف فقط</span></div><div class="field"><label>الموظف</label><select id="pwEmployee"><option value="">جارٍ التحميل...</option></select></div><div class="field"><label>كلمة المرور المؤقتة</label><input id="pwValue" type="text" placeholder="8 أحرف على الأقل"></div><div class="actions"><button class="btn secondary" onclick="generateTempPassword()">توليد كلمة مرور</button><button class="btn" onclick="resetEmployeePassword()">حفظ كلمة المرور</button></div><div id="pwMsg"></div></div><div class="card"><div class="sectionhead"><h3>إعدادات أوقات الدوام</h3><span class="pill p-purple">للمشرف فقط</span></div><div class="muted">يمكن للمشرف فقط تغيير بداية ونهاية الدوام، وتُطبق على حسابات الموظفين في النظام.</div><div class="range" style="margin-top:12px"><div class="field"><label>بداية الدوام</label><input id="shiftStart" type="time" value="${SHIFT_START}"></div><div class="field"><label>نهاية الدوام</label><input id="shiftEnd" type="time" value="${SHIFT_END}"></div></div><button class="btn" onclick="saveShiftSettings()">💾 حفظ أوقات الدوام</button><div id="shiftMsg"></div></div>
- <div class="card"><div class="sectionhead"><h3>حالة الموظفين الآن</h3><div class="toolbar no-print"><button class="btn secondary small" onclick="printDailyReport()">🖨️ الكشف اليومي</button><button class="btn secondary small" onclick="renderSupervisor()">↻ تحديث</button><button class="btn danger small" onclick="resetOperationalData()">🗑️ بدء سجلات جديدة</button></div></div><div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحالة</th><th>الحضور</th><th>التأخير</th><th>الانصراف</th><th>آخر موقع</th><th>آخر نشاط</th><th class="no-print">تحكم</th></tr></thead><tbody>${emps.map(e=>{let a=att[e.id],x=acts.find(z=>z.employee_id===e.id),loc=lastLocationFor(acts,e.id);return `<tr><td><b>${esc(e.name)}</b></td><td>${roleName(e.role)}</td><td>${statusPill(a)}</td><td>${time(a?.check_in)}</td><td>${a?.late_minutes?'<span class="pill p-orange">'+a.late_minutes+' د</span>':'—'}</td><td>${time(effectiveCheckOut(a))}</td><td>${loc?`<button class="btn secondary small no-print" onclick="showLocation(${Number(loc.latitude)},${Number(loc.longitude)},'آخر موقع — ${esc(e.name)}')">📍 مشاهدة</button><span class="muted">${dateTime(loc.created_at)}</span>`:'—'}</td><td>${activityName(x?.activity_type)}<br><span class="muted">${dateTime(x?.created_at)}</span></td><td class="no-print"><div class="actions">${supervisorControls(e,a)}<button class="btn secondary small" onclick="showEmployeeDetails('${e.id}')">👁 تفاصيل</button></div></td></tr>`}).join('')}</tbody></table></div></div>
- <div class="card"><div class="sectionhead"><h3>خريطة آخر مواقع الموظفين</h3><span class="muted">يعرض آخر موقع GPS حدده الموظف اليوم، وليس موقع الحضور فقط</span></div><div id="supervisorMap" class="map"></div></div>
+ <div class="card"><div class="sectionhead"><h3>حالة الموظفين الآن</h3><div class="toolbar no-print"><button class="btn secondary small" onclick="printDailyReport()">🖨️ الكشف اليومي</button><button class="btn secondary small" onclick="renderSupervisor()">↻ تحديث</button><button class="btn danger small" onclick="resetOperationalData()">🗑️ بدء سجلات جديدة</button></div></div><div class="muted" style="margin-bottom:10px">✏️ يمكن للمشرف فقط تعديل وقت الحضور والانصراف لأي موظف، بما في ذلك المشرف نفسه. سبب التعديل إلزامي.</div><div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحالة</th><th>الحضور</th><th>نوع الحضور</th><th>التأخير</th><th>الانصراف</th><th>آخر موقع</th><th>آخر نشاط</th><th class="no-print">تحكم</th></tr></thead><tbody>${emps.map(e=>{let a=att[e.id],x=acts.find(z=>z.employee_id===e.id),loc=lastLocationFor(acts,e.id);return `<tr><td><b>${esc(e.name)}</b></td><td>${roleName(e.role)}</td><td>${statusPill(a)}</td><td>${time(a?.check_in)}</td><td>${(()=>{let m=attendanceModeFromActivities(acts,a);return m?`<span class="pill ${m.type==='ميداني'?'p-orange':'p-green'}">${m.type}</span>${m.reason?`<div class="muted">${esc(m.reason)}</div>`:''}`:'—'})()}</td><td>${a?.late_minutes?'<span class="pill p-orange">'+a.late_minutes+' د</span>':'—'}</td><td>${time(effectiveCheckOut(a))}</td><td>${loc?`<button class="btn secondary small no-print" onclick="showLocation(${Number(loc.latitude)},${Number(loc.longitude)},'آخر موقع — ${esc(e.name)}')">📍 مشاهدة</button><span class="muted">${dateTime(loc.created_at)}</span>`:'—'}</td><td>${activityName(x?.activity_type)}<br><span class="muted">${dateTime(x?.created_at)}</span></td><td class="no-print"><div class="actions">${supervisorControls(e,a)}<button class="btn secondary small" onclick="showEmployeeDetails('${e.id}')">👁 تفاصيل</button><button class="btn small no-print" onclick="manualAttendanceModal('${e.id}')">✏️ تعديل الحضور</button></div></td></tr>`}).join('')}</tbody></table></div></div>
+ <div class="card"><div class="sectionhead"><h3>خريطة آخر مواقع الموظفين</h3><span class="muted">يعرض آخر موقع GPS حدده الموظف اليوم، وليس موقع الحضور فقط</span></div><div class="muted" style="margin-bottom:8px">🏢 نطاق المعرض 200 متر. 🚗 حضور المندوب خارج النطاق يُسجل ميدانيًا ويستلزم سببًا إلزاميًا.</div><div id="supervisorMap" class="map"></div></div>
  <div class="card"><div class="sectionhead"><h3>تقارير المناديب</h3><span class="pill p-purple">للمشرف فقط</span></div><div class="empgrid">${reps.map(e=>`<div class="emp"><div class="emphead"><div><div class="empname">${esc(e.name)}</div><div class="role">مندوب ميداني</div></div>${statusPill(att[e.id])}</div><div class="meta"><div><small>الحضور</small><b>${time(att[e.id]?.check_in)}</b></div><div><small>التأخير</small><b>${att[e.id]?.late_minutes||0} د</b></div><div><small>الانصراف</small><b>${time(effectiveCheckOut(att[e.id]))}</b></div><div><small>زيارات اليوم</small><b>${acts.filter(x=>x.employee_id===e.id&&String(x.note||'').startsWith('VISIT_')).length}</b></div></div><button class="btn no-print" style="margin-top:10px" onclick="printRepReport('${e.id}')">🖨️ طباعة تقرير المندوب</button></div>`).join('')}</div></div>
  <div class="card"><div class="sectionhead"><h3>آخر الزيارات الميدانية</h3><span class="muted">وصول ومغادرة العملاء مع الموقع والوقت</span></div><div>${acts.filter(x=>String(x.note||'').startsWith('VISIT_')).slice(0,30).map(x=>{let n=String(x.note),p=n.split('|'),arr=n.startsWith('VISIT_ARRIVED');let emp=emps.find(e=>e.id===x.employee_id);return `<div class="activity"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(emp?.name||'موظف')}</b><span class="pill ${arr?'p-green':'p-blue'}">${arr?'وصل للموقع':'غادر الموقع'}</span></div><div>${esc(p[1]||'موقع')}</div><div class="muted">${dateTime(x.created_at)} — ${x.latitude!=null?Number(x.latitude).toFixed(5)+', '+Number(x.longitude).toFixed(5):'لا يوجد GPS'}</div></div>`}).join('')||'<div class="muted">لا توجد زيارات مسجلة.</div>'}</div></div>
  <div class="card"><div class="sectionhead"><h3>تنبيهات الغياب</h3></div>${emps.filter(e=>afterShift()&&!att[e.id]?.check_in).map(e=>`<div class="notice">⚠️ <div><strong>${esc(e.name)} — غائب</strong><span>انتهى الدوام ولم يسجل حضورًا.</span></div></div>`).join('')||'<div class="muted">لا يوجد غياب محسوب حاليًا.</div>'}</div>`;
