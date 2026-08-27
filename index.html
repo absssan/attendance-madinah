@@ -93,6 +93,34 @@ tr:last-child td{border-bottom:0}
 .companyBadge{min-width:170px!important;text-align:center!important;color:#fff!important;font-weight:800!important}
 .companyBadge .mini{font-size:13px!important;color:#cbd9e7!important;font-weight:600!important;margin-top:4px!important}
 @media(max-width:700px){.brand{flex-direction:column!important}.brandLogo{width:115px!important;height:74px!important}.brandText h1{font-size:23px!important}.brandText h2{font-size:17px!important}.brandText p{font-size:13px!important}.companyBadge{min-width:0!important}}
+
+/* V19 dashboard UI */
+.loginBrand{display:flex;align-items:center;gap:12px;background:#f7f9fc;border-radius:14px;padding:10px 12px;margin-bottom:18px;color:#123f70}
+.loginBrand .loginLogo{width:70px;height:52px;object-fit:contain}
+.appNav{display:flex;gap:0;background:linear-gradient(90deg,#06274a,#0d3965);border-radius:14px 14px 0 0;overflow:auto;box-shadow:0 4px 15px rgba(0,0,0,.08)}
+.appNav button{min-width:125px;flex:1;background:transparent;color:#fff;padding:14px 12px;font-weight:900;border-left:1px solid rgba(255,255,255,.13);white-space:nowrap}
+.appNav button span{font-size:18px;vertical-align:-2px;margin-left:5px}
+.appNav button.active{background:#0d477d;box-shadow:inset 0 -4px #f2c300}
+.appNav button:hover{background:#155284}
+#app>.userbar{border-radius:0 0 14px 14px;margin-top:0}
+.todayBadge{display:flex;align-items:center;gap:10px;background:#f7f9fc;padding:8px 12px;border-radius:12px}
+.todayBadge span{font-size:11px;color:var(--muted)}.todayBadge b{font-size:13px;color:#123f70}
+.dashboardHero{display:grid;grid-template-columns:1.45fr .75fr;gap:12px}
+.heroClock{background:linear-gradient(135deg,#06274a,#0d477d);color:#fff;border-radius:15px;padding:18px}
+.heroClock h2{margin:0 0 5px;font-size:21px}.heroClock p{margin:0;color:#d7e8f7;font-size:12px}
+.bigClock{font-size:30px;font-weight:900;margin-top:12px}.shiftBadge{display:inline-block;background:#159447;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;margin-top:8px}
+.quickGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.quickBtn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:14px;text-align:right;font-weight:900;color:#123f70;box-shadow:var(--shadow)}
+.quickBtn:hover{transform:translateY(-1px)}.quickBtn .qicon{font-size:21px;display:block;margin-bottom:5px}
+.dashboardCols{display:grid;grid-template-columns:1.55fr .85fr;gap:12px}.sideStack{display:grid;gap:12px;align-content:start}
+.settingsGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.settingsCard{border:1px solid var(--line);border-radius:13px;padding:15px;background:#fff}
+.settingsCard h4{margin:0 0 10px;color:#123f70}.switchRow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #eef2f6}
+.switchRow:last-child{border-bottom:0}.switch{width:48px;height:25px;border-radius:20px;background:#cbd5e1;position:relative}.switch.on{background:#159447}.switch:after{content:'';position:absolute;width:19px;height:19px;top:3px;right:3px;border-radius:50%;background:#fff}.switch.on:after{right:26px}
+.empAdmin{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.empAdmin .emp{display:flex;flex-direction:column;gap:9px}.empAdmin select,.empAdmin input{width:100%;padding:9px;border:1px solid #d7e0e8;border-radius:9px}
+.iconTitle{display:flex;align-items:center;gap:7px}.iconTitle .ico{font-size:20px}
+.actionRow{display:flex;gap:8px;flex-wrap:wrap}.actionRow .btn{width:auto}
+@media(max-width:850px){.dashboardHero,.dashboardCols{grid-template-columns:1fr}.settingsGrid{grid-template-columns:1fr}.empAdmin{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.appNav button{min-width:105px;font-size:11px;padding:11px 8px}.todayBadge{display:none}.quickGrid{grid-template-columns:1fr 1fr}.empAdmin{grid-template-columns:1fr}.bigClock{font-size:25px}}
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 </head>
@@ -103,8 +131,29 @@ tr:last-child td{border-bottom:0}
 <div class="companyBadge"><div>KAS TIRES</div><div class="mini">حضور • انصراف • متابعة ميدانية</div><div id="clock" style="font-size:13px;color:#dbeafe;margin-top:7px"></div></div>
 </div></div></header>
 <main class="wrap">
-<section id="loginCard" class="card login"><h2>تسجيل الدخول</h2><p class="muted">ادخل باسم المستخدم وكلمة المرور — لا حاجة للبريد الإلكتروني.</p><div class="field"><label>اسم المستخدم</label><input id="username" type="text" autocomplete="username" autocapitalize="none" placeholder="مثال: ali"></div><div class="field"><label>كلمة المرور</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••"></div><button id="loginBtn" class="btn">دخول النظام</button><div id="loginMsg" class="msg hidden"></div></section>
-<section id="app" class="hidden"><div class="card userbar"><div class="user"><div class="avatar" id="avatar">—</div><div><b id="userName">—</b><div class="muted" id="userRole">—</div></div></div><button id="logout" class="btn secondary small">تسجيل الخروج</button></div><div id="content"></div></section>
+<section id="loginCard" class="card login">
+  <div class="loginBrand"><img class="loginLogo" src="" alt="KAS TIRES"><div><b>شركة خالد عبدالله الصافي</b><div>فرع المدينة المنورة</div></div></div>
+  <h2>تسجيل الدخول</h2>
+  <p class="muted">ادخل باسم المستخدم وكلمة المرور — لا حاجة للبريد الإلكتروني.</p>
+  <div class="field"><label>اسم المستخدم</label><input id="username" type="text" autocomplete="username" autocapitalize="none" placeholder="مثال: ali"></div>
+  <div class="field"><label>كلمة المرور</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+  <button id="loginBtn" class="btn">دخول النظام</button><div id="loginMsg" class="msg hidden"></div>
+</section>
+<section id="app" class="hidden">
+  <div class="appNav no-print">
+    <button class="active" onclick="appNavigate('dashboard')"><span>⌂</span> لوحة المشرف</button>
+    <button onclick="appNavigate('employees')"><span>👥</span> الموظفون</button>
+    <button onclick="appNavigate('reports')"><span>▥</span> التقارير</button>
+    <button onclick="appNavigate('notifications')"><span>🔔</span> التنبيهات</button>
+    <button onclick="appNavigate('settings')"><span>⚙</span> الإعدادات</button>
+    <button onclick="logout()"><span>⇥</span> تسجيل الخروج</button>
+  </div>
+  <div class="card userbar">
+    <div class="user"><div class="avatar" id="avatar">—</div><div><b id="userName">—</b><div class="muted" id="userRole">—</div></div></div>
+    <div class="todayBadge"><span>اليوم</span><b id="topToday">—</b><span id="topClock">—</span></div>
+  </div>
+  <div id="content"></div>
+</section>
 </main><div class="footer">شركة خالد عبدالله الصافي — فرع المدينة المنورة | نظام تحضير منسوبي الفرع ميداني / حضوري</div><div id="confirmModal" class="hidden"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
@@ -127,12 +176,12 @@ function setClock(){let d=new Date();$('clock').innerHTML=d.toLocaleDateString('
 let SHIFT_END='17:00',SHIFT_START='08:00',shiftSettingId='';
 const BRANCH_LAT=24.48124,BRANCH_LNG=39.62947,BRANCH_RADIUS=200;
 function distanceMeters(lat1,lon1,lat2,lon2){const R=6371000,toRad=x=>x*Math.PI/180,dLat=toRad(lat2-lat1),dLon=toRad(lon2-lon1),a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))}
-function fieldAttendanceInfo(c){const d=distanceMeters(Number(c.latitude),Number(c.longitude),BRANCH_LAT,BRANCH_LNG);return {distance:Math.round(d),inside:d<=BRANCH_RADIUS,type:d<=BRANCH_RADIUS?'BRANCH':'FIELD'}}
+function fieldAttendanceInfo(c){const d=distanceMeters(Number(c.latitude),Number(c.longitude),BRANCH_LAT,BRANCH_LNG);const radius=Number(getUiSettings().branchRadius||BRANCH_RADIUS);return {distance:Math.round(d),inside:d<=radius,type:d<=radius?'BRANCH':'FIELD'}}
 function attendanceModeFromActivities(acts,a){const x=acts.find(z=>a?.id&&z.attendance_id===a.id&&String(z.note||'').startsWith('ATTENDANCE_MODE:'));if(!x)return null;const s=String(x.note||'').replace('ATTENDANCE_MODE:','');const [type,...r]=s.split('|');return {type:type==='FIELD'?'ميداني':'بالفرع',reason:r.join('|')}}
 function shiftEndDate(){return new Date(today()+'T'+SHIFT_END+':00+03:00')}function shiftStartDate(){return new Date(today()+'T'+SHIFT_START+':00+03:00')}function afterShift(){return new Date()>=shiftEndDate()}function shiftMessage(){return '<div class="msg err">🔒 انتهى وقت الدوام اليوم الساعة '+SHIFT_END+'.</div>'}function guardAfterShift(){if(afterShift()){alert('انتهى وقت الدوام اليوم الساعة '+SHIFT_END+'.');return true}return false}
 async function login(){const username=$('username').value.trim().toLowerCase(),password=$('password').value;if(!username||!password){showLogin('أدخل اسم المستخدم وكلمة المرور.');return}const b=$('loginBtn');b.disabled=true;b.textContent='جارٍ الدخول...';try{const r=await fetch(SB_URL+'/functions/v1/ensure-username-login',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({username,code:password})});const info=await r.json();if(!r.ok)throw Error(info.error||'اسم المستخدم أو كلمة المرور غير صحيحة');const email=info.email||username+'@attendance.local';let d=await api('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password}),auth:false});save(d);await boot(d.user)}catch(e){showLogin('فشل تسجيل الدخول: '+e.message)}finally{b.disabled=false;b.textContent='دخول النظام'}}
 function showLogin(t,ok=false){$('loginMsg').className='msg '+(ok?'ok':'err');$('loginMsg').textContent=t}
-async function boot(user){try{let rows=await api('/rest/v1/employees?select=*&auth_user_id=eq.'+encodeURIComponent(user.id));if(!rows.length){showLogin('تم الدخول لكن الحساب غير مربوط بموظف.');logout();return}me=rows[0];const weeklyOff=isWeeklyOffForEmployee(me);if(weeklyOff){token='';localStorage.removeItem('att_token');showLogin(weeklyOff);return}await loadShiftSettings();$('loginCard').classList.add('hidden');$('app').classList.remove('hidden');$('userName').textContent=me.name;$('userRole').textContent=roleName(me.role);$('avatar').textContent=(me.name||'?').trim().charAt(0);if(me.role==='SUPERVISOR')renderSupervisor();else if(me.role==='GOVERNMENT_REP')renderGov();else renderField()}catch(e){showLogin('تعذر تحميل النظام: '+e.message)}}
+async function boot(user){try{let rows=await api('/rest/v1/employees?select=*&auth_user_id=eq.'+encodeURIComponent(user.id));if(!rows.length){showLogin('تم الدخول لكن الحساب غير مربوط بموظف.');logout();return}me=rows[0];const existingLogo=document.querySelector('.brandLogo');const loginLogo=document.querySelector('.loginLogo');if(existingLogo&&loginLogo)loginLogo.src=existingLogo.src;const weeklyOff=isWeeklyOffForEmployee(me);if(weeklyOff){token='';localStorage.removeItem('att_token');showLogin(weeklyOff);return}await loadShiftSettings();$('loginCard').classList.add('hidden');$('app').classList.remove('hidden');$('userName').textContent=me.name;$('userRole').textContent=roleName(me.role);$('avatar').textContent=(me.name||'?').trim().charAt(0);if(me.role==='SUPERVISOR')renderSupervisor();else if(me.role==='GOVERNMENT_REP')renderGov();else renderField()}catch(e){showLogin('تعذر تحميل النظام: '+e.message)}}
 $('loginBtn').onclick=e=>{e.preventDefault();login()};$('password').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();login()}};$('username').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();login()}};$('logout').onclick=logout;
 async function gps(){if(!navigator.geolocation)throw Error('المتصفح لا يدعم تحديد الموقع');return new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(p=>ok(p.coords),()=>no(Error('اسمح بالوصول للموقع ثم حاول مرة أخرى')),{enableHighAccuracy:true,timeout:15000,maximumAge:0}))}
 function attendanceConfirmation(c,now){
@@ -289,7 +338,7 @@ function attendanceReminderPanel(emps,att){
 }
 
 
-function manualAttendanceModal(employeeId){
+function manualAttendanceModal(employeeId){if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
   if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
   const e=(window._employees||[]).find(x=>x.id===employeeId);
   if(!e){alert('لم يتم العثور على الموظف.');return}
@@ -364,18 +413,135 @@ function manualAttendanceModal(employeeId){
   };
 }
 
+
+function setActiveNav(key){
+  document.querySelectorAll('.appNav button').forEach(b=>b.classList.remove('active'));
+  const map={dashboard:0,employees:1,reports:2,notifications:3,settings:4};
+  const b=document.querySelectorAll('.appNav button')[map[key]];
+  if(b)b.classList.add('active');
+}
+async function appNavigate(key){
+  if(me?.role!=='SUPERVISOR'){
+    if(key==='dashboard')return me?.role==='GOVERNMENT_REP'?renderGov():renderField();
+    alert('هذه القائمة متاحة للمشرف فقط.'); return;
+  }
+  setActiveNav(key);
+  if(key==='dashboard')return renderSupervisor();
+  if(key==='employees')return renderEmployeeAdmin();
+  if(key==='reports')return renderReportsCenter();
+  if(key==='notifications')return renderNotificationsCenter();
+  if(key==='settings')return renderSettingsCenter();
+}
+function dashboardStats(emps,att){
+  const special=e=>specialAttendanceStatus(att[e.id]);
+  return {
+    present:emps.filter(e=>att[e.id]?.check_in&&!special(e)).length,
+    late:emps.filter(e=>att[e.id]?.check_in&&!special(e)&&Number(att[e.id]?.late_minutes||0)>0).length,
+    absent:afterShift()?emps.filter(e=>!att[e.id]?.check_in&&!special(e)).length:0
+  };
+}
+function renderReportsCenter(){
+  $('content').innerHTML=`<div class="card"><div class="sectionhead"><h3 class="iconTitle"><span class="ico">▥</span> مركز التقارير</h3><span class="pill p-purple">صلاحية المشرف</span></div>
+  <div class="toolbar no-print" style="margin-bottom:12px"><button class="btn secondary small" onclick="printDailyReport()">🖨️ طباعة الكشف اليومي</button><button class="btn secondary small" onclick="renderSupervisor()">↻ العودة للوحة</button></div>
+  <div id="reportEmployees" class="empgrid"><div class="muted">جارٍ تحميل التقارير...</div></div></div>`;
+  api('/rest/v1/employees?select=*&active=eq.true&order=name').then(emps=>{
+    $('reportEmployees').innerHTML=emps.filter(e=>e.role==='FIELD_REP').map(e=>`<div class="emp"><div class="emphead"><div><div class="empname">${esc(e.name)}</div><div class="role">مندوب ميداني</div></div><span class="pill p-blue">تقرير مستقل</span></div><div class="muted">الحضور والزيارات الميدانية والمواقع والأوقات.</div><button class="btn small" onclick="printRepReport('${e.id}')">🖨️ طباعة التقرير</button></div>`).join('')||'<div class="muted">لا يوجد مناديب ميدانيون.</div>';
+  }).catch(e=>$('reportEmployees').innerHTML='<div class="msg err">'+esc(e.message)+'</div>');
+}
+function renderNotificationsCenter(){
+  Promise.all([api('/rest/v1/employees?select=*&active=eq.true&order=name'),api('/rest/v1/attendance?select=*&work_date=eq.'+today())]).then(([emps,rows])=>{
+    const att=Object.fromEntries(rows.map(x=>[x.employee_id,x]));
+    $('content').innerHTML=attendanceReminderPanel(emps,att)+`<div class="card"><div class="sectionhead"><h3>🔔 حالة التنبيهات</h3><span class="muted">الإرسال يتم من جهاز المشرف عبر WhatsApp.</span></div><div class="msg ok">✓ الروابط شخصية ولا تتضمن كلمة المرور.</div></div>`;
+  }).catch(e=>$('content').innerHTML='<div class="card msg err">'+esc(e.message)+'</div>');
+}
+async function renderEmployeeAdmin(){
+  try{
+    const emps=await api('/rest/v1/employees?select=*&active=eq.true&order=name');window._employees=emps;
+    $('content').innerHTML=`<div class="card"><div class="sectionhead"><h3 class="iconTitle"><span class="ico">👥</span> إدارة الموظفين والصلاحيات</h3><span class="pill p-red">للمشرف فقط</span></div>
+    <div class="muted" style="margin-bottom:12px">تعديل الاسم والجوال والدور متاح للمشرف. كلمة المرور لها إدارة مستقلة.</div>
+    <div class="empAdmin">${emps.map(e=>`<div class="emp"><b>${esc(e.name)}</b><span class="role">${esc(e.username||'—')}</span>
+      <div class="field"><label>الاسم</label><input id="ename_${e.id}" value="${esc(e.name)}"></div>
+      <div class="field"><label>رقم الجوال</label><input id="ephone_${e.id}" value="${esc(e.phone||'')}"></div>
+      <div class="field"><label>الدور</label><select id="erole_${e.id}">${['SUPERVISOR','FIELD_REP','GOVERNMENT_REP','WAREHOUSE_AMIN'].map(r=>`<option value="${r}" ${e.role===r?'selected':''}>${roleName(r)}</option>`).join('')}</select></div>
+      <button class="btn small" onclick="saveEmployeeAdmin('${e.id}')">💾 حفظ بيانات الموظف</button>
+    </div>`).join('')}</div></div>`;
+  }catch(e){$('content').innerHTML='<div class="card msg err">تعذر تحميل الموظفين: '+esc(e.message)+'</div>'}
+}
+async function saveEmployeeAdmin(id){
+  if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
+  const name=$('ename_'+id)?.value.trim(),phone=$('ephone_'+id)?.value.trim(),role=$('erole_'+id)?.value;
+  if(!name||!role){alert('الاسم والدور مطلوبان.');return}
+  try{await api('/rest/v1/employees?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({name,phone:phone||null,role,updated_at:new Date().toISOString()})});alert('✓ تم حفظ بيانات الموظف.');renderEmployeeAdmin()}catch(e){alert('تعذر حفظ البيانات: '+e.message)}
+}
+function getUiSettings(){try{return JSON.parse(localStorage.getItem('kas_ui_settings')||'{}')}catch{return {}}}
+function renderSettingsCenter(){
+  const s=getUiSettings();
+  $('content').innerHTML=`<div class="card"><div class="sectionhead"><h3 class="iconTitle"><span class="ico">⚙</span> إعدادات النظام</h3><span class="pill p-red">المشرف فقط</span></div>
+  <div class="settingsGrid">
+    <div class="settingsCard"><h4>⏰ أوقات الدوام</h4><div class="field"><label>بداية الدوام</label><input id="shiftStart" type="time" value="${esc(SHIFT_START)}"></div><div class="field"><label>نهاية الدوام</label><input id="shiftEnd" type="time" value="${esc(SHIFT_END)}"></div><button class="btn small" onclick="saveShiftSettings()">💾 حفظ أوقات الدوام</button></div>
+    <div class="settingsCard"><h4>📍 الحضور والموقع</h4><div class="field"><label>نطاق الفرع بالمتر</label><input id="branchRadiusSetting" type="number" min="20" max="2000" value="${Number(s.branchRadius||BRANCH_RADIUS)}"></div><div class="switchRow"><span>إلزام سبب الحضور الميداني</span><button class="switch ${s.fieldReason!==false?'on':''}" id="fieldReasonSwitch" onclick="toggleUiSwitch(this)"></button></div><div class="switchRow"><span>تسجيل آخر موقع</span><button class="switch ${s.lastLocation!==false?'on':''}" id="lastLocationSwitch" onclick="toggleUiSwitch(this)"></button></div><button class="btn small" style="margin-top:10px" onclick="saveUiSettings()">💾 حفظ إعدادات الموقع</button></div>
+    <div class="settingsCard"><h4>📅 أيام الإجازة</h4><div class="msg ok">الجمعة: إجازة أسبوعية للجميع.</div><div class="msg ok">السبت: إجازة أسبوعية ليحيى الكلابي.</div><div class="muted">هذه القاعدة مطبقة حاليًا في النظام.</div></div>
+    <div class="settingsCard"><h4>🔐 صلاحيات المشرف</h4><div class="switchRow"><span>تعديل حضور وانصراف الجميع</span><button class="switch on"></button></div><div class="switchRow"><span>تسجيل الإجازات والاستئذان</span><button class="switch on"></button></div><div class="switchRow"><span>طباعة تقارير المناديب</span><button class="switch on"></button></div><div class="switchRow"><span>بدء سجلات جديدة</span><button class="switch on"></button></div><div class="muted" style="margin-top:8px">الحماية الفعلية يجب أن تبقى في Supabase RLS، وليس في الواجهة فقط.</div></div>
+  </div>
+  <div class="card" style="margin:12px 0 0;background:#f8fafc"><div class="sectionhead"><h3>🧰 أدوات المشرف</h3></div><div class="actionRow"><button class="btn danger small" onclick="resetOperationalData()">🗑️ بدء سجلات جديدة</button><button class="btn secondary small" onclick="appNavigate('employees')">👥 إدارة الموظفين</button><button class="btn secondary small" onclick="printDailyReport()">🖨️ طباعة الكشف</button><button class="btn secondary small" onclick="renderSupervisor()">↻ تحديث النظام</button></div></div>
+  </div>`;
+}
+function toggleUiSwitch(el){el.classList.toggle('on')}
+function saveUiSettings(){
+  const s=getUiSettings();
+  s.branchRadius=Math.max(20,Math.min(2000,Number($('branchRadiusSetting')?.value||BRANCH_RADIUS)));
+  s.fieldReason=$('fieldReasonSwitch')?.classList.contains('on');
+  s.lastLocation=$('lastLocationSwitch')?.classList.contains('on');
+  localStorage.setItem('kas_ui_settings',JSON.stringify(s));
+  alert('✓ تم حفظ إعدادات الواجهة.');
+}
+function updateTopClock(){
+  const d=new Date();
+  if($('topToday'))$('topToday').textContent=d.toLocaleDateString('ar-SA',{weekday:'long',day:'numeric',month:'long'});
+  if($('topClock'))$('topClock').textContent=d.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(updateTopClock,1000);setTimeout(updateTopClock,50);
+
 async function renderSupervisor(){
- $('content').innerHTML='<div class="card">جارٍ تحميل لوحة المشرف...</div>';
- try{let d=today();let [emps,attRows,acts,tasks]=await Promise.all([api('/rest/v1/employees?select=*&active=eq.true&order=name'),api('/rest/v1/attendance?select=*&work_date=eq.'+d),api('/rest/v1/activities?select=*&order=created_at.desc&limit=1000'),api('/rest/v1/government_tasks?select=*&order=created_at.desc&limit=200')]);window._employees=emps; window.shiftStartSetting=(emps.find(e=>e.role==='SUPERVISOR')?.shift_start||'08:00'); let att=Object.fromEntries(attRows.map(x=>[x.employee_id,x])); window._todayAttendance=att; let present=attRows.filter(x=>x.check_in&&!specialAttendanceStatus(x)).length,late=attRows.filter(x=>x.check_in&&Number(x.late_minutes||0)>0).length,out=attRows.filter(x=>x.check_out).length,absent=afterShift()?emps.filter(e=>!att[e.id]?.check_in&&!specialAttendanceStatus(att[e.id])).length:0,openTasks=tasks.filter(x=>!['COMPLETED','REJECTED'].includes(x.status)).length;let my=att[me.id];let reps=emps.filter(e=>e.role==='FIELD_REP');
- $('content').innerHTML=`<div class="card"><div class="sectionhead"><h3>دوامي كمشرف — ${d}</h3><span class="pill p-purple">مشرف الفرع</span></div><div class="grid"><div class="stat"><div class="label">الحالة</div><div class="num">${statusOf(my)}</div></div><div class="stat"><div class="label">وقت الحضور</div><div class="num green">${time(my?.check_in)}</div></div><div class="stat"><div class="label">التأخير</div><div class="num orange">${my?.late_minutes||0} د</div></div><div class="stat"><div class="label">الانصراف</div><div class="num">${time(my?.check_out)}</div></div></div><div class="actions no-print" style="margin-top:12px">${my?.check_in?my?.check_out?'<div class="msg ok">✓ تم تسجيل انصرافك: '+time(my.check_out)+'</div>':'<button class="btn secondary" onclick="selfCheckOut()">🚪 تأكيد الانصراف</button>':'<button class="btn" onclick="selfCheckIn()">📍 تأكيد حضوري بالموقع</button>'}</div></div>
- <div class="grid"><div class="stat"><div class="label">الحاضرون</div><div class="num green">${present}</div></div><div class="stat"><div class="label">المتأخرون</div><div class="num orange">${late}</div></div><div class="stat"><div class="label">الغائبون</div><div class="num red">${absent}</div></div><div class="stat"><div class="label">المهام الحكومية المفتوحة</div><div class="num purple">${openTasks}</div></div></div><div class="card"><div class="sectionhead"><h3>إدارة كلمات مرور الموظفين</h3><span class="pill p-purple">للمشرف فقط</span></div><div class="field"><label>الموظف</label><select id="pwEmployee"><option value="">جارٍ التحميل...</option></select></div><div class="field"><label>كلمة المرور المؤقتة</label><input id="pwValue" type="text" placeholder="8 أحرف على الأقل"></div><div class="actions"><button class="btn secondary" onclick="generateTempPassword()">توليد كلمة مرور</button><button class="btn" onclick="resetEmployeePassword()">حفظ كلمة المرور</button></div><div id="pwMsg"></div></div><div class="card"><div class="sectionhead"><h3>إعدادات أوقات الدوام</h3><span class="pill p-purple">للمشرف فقط</span></div><div class="muted">يمكن للمشرف فقط تغيير بداية ونهاية الدوام، وتُطبق على حسابات الموظفين في النظام.</div><div class="range" style="margin-top:12px"><div class="field"><label>بداية الدوام</label><input id="shiftStart" type="time" value="${SHIFT_START}"></div><div class="field"><label>نهاية الدوام</label><input id="shiftEnd" type="time" value="${SHIFT_END}"></div></div><button class="btn" onclick="saveShiftSettings()">💾 حفظ أوقات الدوام</button><div id="shiftMsg"></div></div>
- <div class="card"><div class="sectionhead"><h3>حالة الموظفين الآن</h3><div class="toolbar no-print"><button class="btn secondary small" onclick="printDailyReport()">🖨️ الكشف اليومي</button><button class="btn secondary small" onclick="renderSupervisor()">↻ تحديث</button><button class="btn danger small" onclick="resetOperationalData()">🗑️ بدء سجلات جديدة</button></div></div><div class="muted" style="margin-bottom:10px">✏️ يمكن للمشرف فقط تعديل وقت الحضور والانصراف لأي موظف، بما في ذلك المشرف نفسه. سبب التعديل إلزامي.</div><div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحالة</th><th>الحضور</th><th>نوع الحضور</th><th>التأخير</th><th>الانصراف</th><th>آخر موقع</th><th>آخر نشاط</th><th class="no-print">تحكم</th></tr></thead><tbody>${emps.map(e=>{let a=att[e.id],x=acts.find(z=>z.employee_id===e.id),loc=lastLocationFor(acts,e.id);return `<tr><td><b>${esc(e.name)}</b></td><td>${roleName(e.role)}</td><td>${statusPill(a)}${specialAttendanceStatus(a)?.reason?`<div class="muted">السبب: ${esc(specialAttendanceStatus(a).reason)}</div>`:''}</td><td>${time(a?.check_in)}</td><td>${(()=>{let m=attendanceModeFromActivities(acts,a);return m?`<span class="pill ${m.type==='ميداني'?'p-orange':'p-green'}">${m.type}</span>${m.reason?`<div class="muted">${esc(m.reason)}</div>`:''}`:'—'})()}</td><td>${a?.late_minutes?'<span class="pill p-orange">'+a.late_minutes+' د</span>':'—'}</td><td>${time(effectiveCheckOut(a))}</td><td>${loc?`<button class="btn secondary small no-print" onclick="showLocation(${Number(loc.latitude)},${Number(loc.longitude)},'آخر موقع — ${esc(e.name)}')">📍 مشاهدة</button><span class="muted">${dateTime(loc.created_at)}</span>`:'—'}</td><td>${activityName(x?.activity_type)}<br><span class="muted">${dateTime(x?.created_at)}</span></td><td class="no-print"><div class="actions">${supervisorControls(e,a)}<button class="btn secondary small" onclick="showEmployeeDetails('${e.id}')">👁 تفاصيل</button><button class="btn small no-print" onclick="manualAttendanceModal('${e.id}')">✏️ تعديل الحضور</button></div></td></tr>`}).join('')}</tbody></table></div></div>
- <div class="card"><div class="sectionhead"><h3>خريطة آخر مواقع الموظفين</h3><span class="muted">يعرض آخر موقع GPS حدده الموظف اليوم، وليس موقع الحضور فقط</span></div><div class="muted" style="margin-bottom:8px">🏢 نطاق المعرض 200 متر. 🚗 حضور المندوب خارج النطاق يُسجل ميدانيًا ويستلزم سببًا إلزاميًا.</div><div id="supervisorMap" class="map"></div></div>
- <div class="card"><div class="sectionhead"><h3>تقارير المناديب</h3><span class="pill p-purple">للمشرف فقط</span></div><div class="empgrid">${reps.map(e=>`<div class="emp"><div class="emphead"><div><div class="empname">${esc(e.name)}</div><div class="role">مندوب ميداني</div></div>${statusPill(att[e.id])}</div><div class="meta"><div><small>الحضور</small><b>${time(att[e.id]?.check_in)}</b></div><div><small>التأخير</small><b>${att[e.id]?.late_minutes||0} د</b></div><div><small>الانصراف</small><b>${time(effectiveCheckOut(att[e.id]))}</b></div><div><small>زيارات اليوم</small><b>${acts.filter(x=>x.employee_id===e.id&&String(x.note||'').startsWith('VISIT_')).length}</b></div></div><button class="btn no-print" style="margin-top:10px" onclick="printRepReport('${e.id}')">🖨️ طباعة تقرير المندوب</button></div>`).join('')}</div></div>
- <div class="card"><div class="sectionhead"><h3>آخر الزيارات الميدانية</h3><span class="muted">وصول ومغادرة العملاء مع الموقع والوقت</span></div><div>${acts.filter(x=>String(x.note||'').startsWith('VISIT_')).slice(0,30).map(x=>{let n=String(x.note),p=n.split('|'),arr=n.startsWith('VISIT_ARRIVED');let emp=emps.find(e=>e.id===x.employee_id);return `<div class="activity"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(emp?.name||'موظف')}</b><span class="pill ${arr?'p-green':'p-blue'}">${arr?'وصل للموقع':'غادر الموقع'}</span></div><div>${esc(p[1]||'موقع')}</div><div class="muted">${dateTime(x.created_at)} — ${x.latitude!=null?Number(x.latitude).toFixed(5)+', '+Number(x.longitude).toFixed(5):'لا يوجد GPS'}</div></div>`}).join('')||'<div class="muted">لا توجد زيارات مسجلة.</div>'}</div></div>
- <div class="card"><div class="sectionhead"><h3>تنبيهات الغياب</h3></div>${emps.filter(e=>afterShift()&&!att[e.id]?.check_in&&!specialAttendanceStatus(att[e.id])).map(e=>`<div class="notice">⚠️ <div><strong>${esc(e.name)} — غائب</strong><span>انتهى الدوام ولم يسجل حضورًا.</span></div></div>`).join('')||'<div class="muted">لا يوجد غياب محسوب حاليًا.</div>'}</div>`;
- initSupervisorMap(emps,att,acts); const pw=$('pwEmployee'); if(pw) pw.innerHTML=emps.map(e=>`<option value="${e.id}">${esc(e.name)} — ${esc(roleName(e.role))}</option>`).join('');
- }catch(e){$('content').innerHTML='<div class="card msg err">تعذر تحميل لوحة المشرف: '+esc(e.message)+'</div>'}}
+  $('content').innerHTML='<div class="card">جارٍ تحميل لوحة المشرف...</div>';
+  try{
+    let d=today();
+    let [emps,attRows,acts,tasks]=await Promise.all([
+      api('/rest/v1/employees?select=*&active=eq.true&order=name'),
+      api('/rest/v1/attendance?select=*&work_date=eq.'+d),
+      api('/rest/v1/activities?select=*&order=created_at.desc&limit=1000'),
+      api('/rest/v1/government_tasks?select=*&order=created_at.desc&limit=200')
+    ]);
+    window._employees=emps;window.shiftStartSetting=(emps.find(e=>e.role==='SUPERVISOR')?.shift_start||SHIFT_START||'08:00');
+    let att=Object.fromEntries(attRows.map(x=>[x.employee_id,x]));window._todayAttendance=att;
+    let st=dashboardStats(emps,att),reps=emps.filter(e=>e.role==='FIELD_REP'),my=att[me.id];
+    $('content').innerHTML=`
+      <div class="dashboardHero">
+        <div class="heroClock"><h2>لوحة متابعة فرع المدينة المنورة</h2><p>الحضور والانصراف والمتابعة الميدانية والمهام الحكومية.</p><div class="bigClock" id="dashClock">—</div><span class="shiftBadge">⏰ الدوام ${esc(SHIFT_START)} — ${esc(SHIFT_END)}</span></div>
+        <div class="quickGrid"><button class="quickBtn" onclick="appNavigate('employees')"><span class="qicon">👥</span>إدارة الموظفين</button><button class="quickBtn" onclick="appNavigate('reports')"><span class="qicon">🖨️</span>التقارير والطباعة</button><button class="quickBtn" onclick="appNavigate('notifications')"><span class="qicon">🔔</span>تنبيهات الحضور</button><button class="quickBtn" onclick="appNavigate('settings')"><span class="qicon">⚙</span>إعدادات النظام</button></div>
+      </div>
+      <div class="grid" style="margin-top:12px"><div class="stat"><div class="label">إجمالي الموظفين</div><div class="num blue">${emps.length}</div><div class="muted">موظف</div></div><div class="stat"><div class="label">حاضر اليوم</div><div class="num green">${st.present}</div><div class="muted">حضور فعلي</div></div><div class="stat"><div class="label">متأخر اليوم</div><div class="num orange">${st.late}</div><div class="muted">موظف</div></div><div class="stat"><div class="label">غائب اليوم</div><div class="num red">${st.absent}</div><div class="muted">بعد انتهاء الدوام</div></div></div>
+      <div class="dashboardCols" style="margin-top:12px">
+        <div class="card"><div class="sectionhead"><h3 class="iconTitle"><span class="ico">👥</span> حالة الموظفين اليوم</h3><div class="toolbar no-print"><button class="btn secondary small" onclick="printDailyReport()">🖨️ طباعة</button><button class="btn secondary small" onclick="renderSupervisor()">↻ تحديث</button><button class="btn danger small" onclick="resetOperationalData()">🗑️ سجلات جديدة</button></div></div>
+        <div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحالة</th><th>الحضور</th><th>التأخير</th><th>الانصراف</th><th>الموقع</th><th>الإجراءات</th></tr></thead><tbody>
+        ${emps.map(e=>{let a=att[e.id],last=lastLocationFor(acts,e.id);return `<tr><td><b>${esc(e.name)}</b></td><td>${esc(roleName(e.role))}</td><td>${statusPill(a)}${specialAttendanceStatus(a)?.reason?`<div class="muted">السبب: ${esc(specialAttendanceStatus(a).reason)}</div>`:''}</td><td>${time(a?.check_in)}</td><td>${a?.late_minutes||0} د</td><td>${time(a?.check_out)}</td><td>${last?.latitude!=null?`<button class="btn secondary small" onclick="showLocation(${Number(last.latitude)},${Number(last.longitude)},'آخر موقع — ${esc(e.name)}')">📍 الخريطة</button>`:'—'}</td><td><div class="toolbar no-print">${supervisorControls(e,a)}<button class="btn secondary small" onclick="manualAttendanceModal('${e.id}')">✏️ تعديل</button></div></td></tr>`}).join('')}
+        </tbody></table></div></div>
+        <div class="sideStack">
+          <div class="card"><div class="sectionhead"><h3>دوامي كمشرف</h3><span class="pill p-purple">صلاحياتي</span></div><div class="report-grid"><div class="report-box">الحالة<b>${statusOf(my)}</b></div><div class="report-box">الحضور<b>${time(my?.check_in)}</b></div><div class="report-box">التأخير<b>${my?.late_minutes||0} د</b></div></div><div class="actionRow" style="margin-top:10px">${!my?.check_in?`<button class="btn small" onclick="selfCheckIn()">🟢 تسجيل حضوري</button>`:!my?.check_out?`<button class="btn danger small" onclick="selfCheckOut()">🔴 تسجيل انصرافي</button>`:''}<button class="btn secondary small" onclick="manualAttendanceModal('${me.id}')">✏️ تعديل يدوياً</button></div></div>
+          <div class="card"><div class="sectionhead"><h3>إجراءات سريعة</h3><span>⚡</span></div><div class="actionRow"><button class="btn small" onclick="appNavigate('employees')">👥 الموظفون</button><button class="btn secondary small" onclick="appNavigate('reports')">🖨️ التقارير</button><button class="btn secondary small" onclick="appNavigate('notifications')">🔔 التنبيهات</button><button class="btn secondary small" onclick="appNavigate('settings')">⚙ الإعدادات</button></div></div>
+          <div class="card"><div class="sectionhead"><h3>تنبيهات الغياب</h3><span class="pill ${st.absent?'p-red':'p-green'}">${st.absent}</span></div>${emps.filter(e=>afterShift()&&!att[e.id]?.check_in&&!specialAttendanceStatus(att[e.id])).slice(0,6).map(e=>`<div class="notice">⚠️ <div><strong>${esc(e.name)} — غائب</strong><span>انتهى الدوام ولم يسجل حضورًا.</span></div></div>`).join('')||'<div class="muted">لا يوجد غياب محسوب حاليًا.</div>'}</div>
+        </div>
+      </div>
+      <div class="dashboardCols"><div class="card"><div class="sectionhead"><h3>🗺️ خريطة آخر مواقع الموظفين</h3><span class="muted">آخر موقع GPS اليوم</span></div><div class="muted" style="margin-bottom:8px">🏢 نطاق المعرض ${Number(getUiSettings().branchRadius||BRANCH_RADIUS)} متر. حضور المندوب خارج النطاق يُسجل ميدانيًا ويستلزم سببًا.</div><div id="supervisorMap" class="map"></div></div>
+      <div class="card"><div class="sectionhead"><h3>📊 تقارير المناديب</h3><span class="pill p-purple">للمشرف فقط</span></div>${reps.map(e=>`<div class="activity"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><b>${esc(e.name)}</b><div class="muted">حضور ${time(att[e.id]?.check_in)} • تأخير ${att[e.id]?.late_minutes||0} د</div></div><button class="btn small" onclick="printRepReport('${e.id}')">🖨️ تقرير</button></div></div>`).join('')||'<div class="muted">لا يوجد مناديب.</div>'}</div></div>
+      <div class="card"><div class="sectionhead"><h3>🧭 آخر الزيارات الميدانية</h3><span class="muted">وصول ومغادرة العملاء مع الموقع والوقت</span></div>${acts.filter(x=>String(x.note||'').startsWith('VISIT_')).slice(0,12).map(x=>{let n=String(x.note),p=n.split('|'),arr=n.startsWith('VISIT_ARRIVED'),emp=emps.find(e=>e.id===x.employee_id);return `<div class="activity"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(emp?.name||'موظف')}</b><span class="pill ${arr?'p-green':'p-blue'}">${arr?'وصول عميل':'مغادرة عميل'}</span></div><div class="muted">${esc(p[1]||'')} • ${dateTime(x.created_at)}</div></div>`}).join('')||'<div class="muted">لا توجد زيارات مسجلة اليوم.</div>'}</div>
+      ${attendanceReminderPanel(emps,att)}`;
+    initSupervisorMap(emps,att,acts);
+    const pw=$('pwEmployee');if(pw)pw.innerHTML=emps.map(e=>`<option value="${e.id}">${esc(e.name)} — ${esc(roleName(e.role))}</option>`).join('');
+    const tick=()=>{const x=$('dashClock');if(x)x.textContent=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'})};tick();setInterval(tick,1000);
+  }catch(e){$('content').innerHTML='<div class="card msg err">تعذر تحميل لوحة المشرف: '+esc(e.message)+'</div>'}
+}
+
 function generateTempPassword(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$';let out='';const a=new Uint32Array(10);crypto.getRandomValues(a);for(let i=0;i<a.length;i++)out+=chars[a[i]%chars.length];if($('pwValue'))$('pwValue').value=out}
 async function resetEmployeePassword(){const employeeId=$('pwEmployee')?.value,password=$('pwValue')?.value||'';if(!employeeId)return;if(password.length<8){$('pwMsg').innerHTML='<div class="msg err">كلمة المرور يجب أن تكون 8 أحرف على الأقل.</div>';return}try{const r=await fetch(SB_URL+'/functions/v1/admin-reset-employee-password',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+token},body:JSON.stringify({employee_id:employeeId,password})});const d=await r.json();if(!r.ok)throw Error(d.error||'تعذر تغيير كلمة المرور');$('pwMsg').innerHTML='<div class="msg ok">✓ تم تعيين كلمة المرور المؤقتة بنجاح.</div>'}catch(e){$('pwMsg').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'}}
 async function renderField(){if(afterShift()){}$('content').innerHTML=`<div class="card"><div class="sectionhead"><h3>دوامي اليوم</h3><span class="pill p-blue">${today()}</span></div><div id="myDay">جارٍ التحميل...</div></div><div class="card"><div class="sectionhead"><h3>موقع حضوري</h3><span class="muted">آخر موقع محدد يظهر للمشرف</span></div><div id="myMap" class="map"></div></div><div class="card"><h3>المتابعة الميدانية</h3><div class="field"><label>اسم العميل / الموقع</label><input id="visitCustomer" placeholder="مثال: مؤسسة فلان"></div><div class="actions"><button class="btn" onclick="recordVisit('ARRIVED')">📍 وصلت للموقع</button><button class="btn secondary" onclick="recordVisit('LEFT')">🚗 غادرت الموقع</button></div><div class="field"><label>حالة النشاط</label><select id="actType"><option value="VISIT_CUSTOMER">زيارة عميل</option><option value="TRAVELING">في الطريق</option><option value="BRANCH">في الفرع</option><option value="OTHER">نشاط آخر</option></select></div><div class="field"><label>ملاحظة</label><input id="actNote" placeholder="مقابلة العميل / متابعة عرض / طلب تسعير"></div><button class="btn secondary" onclick="sendActivity()">تحديث النشاط + الموقع</button><div id="actMsg"></div></div><div class="card"><h3>سجل نشاطي اليوم</h3><div id="myActs">جارٍ التحميل...</div></div>`;await loadField()}
