@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1f33">
-<title>شركة خالد عبدالله الصافي — فرع المدينة المنورة | نظام تحضير منسوبي الفرع V25</title>
+<title>شركة خالد عبدالله الصافي — فرع المدينة المنورة | نظام تحضير منسوبي الفرع V24</title>
 <style>
 :root{
  --navy:#08284a;--navy2:#0b3764;--blue:#1769b5;--blue2:#237dcc;
@@ -191,6 +191,22 @@ tr:last-child td{border-bottom:0}
 .reportPrintSheet .report-box{border:1px solid #c8d2dc;border-radius:7px;padding:7px;background:#fff}
 .reportPrintSheet .report-box b{font-size:14px}
 @media print{.reportPrintSheet .pageBreak{page-break-before:always}.reportPrintSheet .repPage{page-break-inside:avoid}.reportPrintSheet footer{margin-top:12px;border-top:1px solid #aaa;padding-top:7px;font-size:9px}}
+
+/* V24 final UI polish */
+.brand{min-height:104px!important}
+.brandLogo{width:190px!important;height:105px!important;background:transparent!important;border:0!important;border-radius:0!important;padding:0!important;box-shadow:none!important;filter:none!important;mix-blend-mode:normal!important;object-fit:contain!important}
+.brandText{display:none!important}
+.companyBadge{min-width:0!important}
+.companyBadge>div:not(#clock){display:none!important}
+.companyBadge #clock{font-size:14px!important;color:#dbeafe!important;margin-top:0!important;text-align:center!important;line-height:1.55!important}
+.siteFooter{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap}
+.siteFooter .developer{font-size:9px;font-weight:600;opacity:.72;letter-spacing:.8px;direction:ltr}
+.empAdmin .field{margin:0!important}
+.empAdmin .field label{margin-bottom:5px}
+.empAdmin .phoneField input{font-weight:800;direction:ltr;text-align:left}
+.empAdmin .savePhoneBtn{background:#0b6b3a!important;color:#fff!important}
+@media(max-width:700px){.brand{min-height:82px!important}.brandLogo{width:145px!important;height:78px!important}}
+@media print{.siteFooter{display:none!important}}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 </head>
@@ -226,7 +242,7 @@ tr:last-child td{border-bottom:0}
   </div>
   <div id="content"></div>
 </section>
-</main><div class="footer">شركة خالد عبدالله الصافي — فرع المدينة المنورة | نظام تحضير منسوبي الفرع ميداني / حضوري</div><div id="confirmModal" class="hidden"></div>
+</main><div class="footer siteFooter"><span>شركة خالد عبدالله الصافي — فرع المدينة المنورة | نظام تحضير منسوبي الفرع ميداني / حضوري</span><span class="developer">ABSSAN</span></div><div id="confirmModal" class="hidden"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
 const SB_URL='https://lhwsduzaicatihhqinir.supabase.co';
@@ -537,12 +553,12 @@ async function renderEmployeeAdmin(){
   try{
     const emps=await api('/rest/v1/employees?select=*&active=eq.true&order=name');window._employees=emps;
     $('content').innerHTML=`<div class="card"><div class="sectionhead"><h3 class="iconTitle"><span class="ico">👥</span> إدارة الموظفين والصلاحيات</h3><span class="pill p-red">للمشرف فقط</span></div>
-    <div class="muted" style="margin-bottom:12px">تعديل الاسم والجوال والدور متاح للمشرف. كلمة المرور لها إدارة مستقلة.</div>
+    <div class="muted" style="margin-bottom:12px">تعديل الاسم والجوال والدور متاح للمشرف. كلمة المرور لها إدارة مستقلة.</div><div class="actionRow no-print" style="margin-bottom:12px"><button class="btn small" onclick="saveAllEmployeePhones()">📱 حفظ جميع أرقام الجوالات</button></div>
     <div class="empAdmin">${emps.map(e=>`<div class="emp"><b>${esc(e.name)}</b><span class="role">${esc(e.username||'—')}</span>
       <div class="field"><label>الاسم</label><input id="ename_${e.id}" value="${esc(e.name)}"></div>
-      <div class="field"><label>رقم الجوال</label><input id="ephone_${e.id}" value="${esc(e.phone||'')}"></div>
+      <div class="field phoneField"><label>رقم الجوال</label><input id="ephone_${e.id}" type="tel" inputmode="tel" autocomplete="tel" placeholder="05xxxxxxxx" value="${esc(e.phone||'')}"></div>
       <div class="field"><label>الدور</label><select id="erole_${e.id}">${['SUPERVISOR','FIELD_REP','GOVERNMENT_REP','WAREHOUSE_AMIN'].map(r=>`<option value="${r}" ${e.role===r?'selected':''}>${roleName(r)}</option>`).join('')}</select></div>
-      <button class="btn small" onclick="saveEmployeeAdmin('${e.id}')">💾 حفظ بيانات الموظف</button>
+      <button class="btn small savePhoneBtn" onclick="saveEmployeeAdmin('${e.id}')">💾 حفظ الاسم والجوال</button>
     </div>`).join('')}</div></div>`;
   }catch(e){$('content').innerHTML='<div class="card msg err">تعذر تحميل الموظفين: '+esc(e.message)+'</div>'}
 }
@@ -551,6 +567,18 @@ async function saveEmployeeAdmin(id){
   const name=$('ename_'+id)?.value.trim(),phone=$('ephone_'+id)?.value.trim(),role=$('erole_'+id)?.value;
   if(!name||!role){alert('الاسم والدور مطلوبان.');return}
   try{await api('/rest/v1/employees?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({name,phone:phone||null,role,updated_at:new Date().toISOString()})});alert('✓ تم حفظ بيانات الموظف.');renderEmployeeAdmin()}catch(e){alert('تعذر حفظ البيانات: '+e.message)}
+}
+async function saveAllEmployeePhones(){
+  if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
+  const emps=window._employees||[];
+  try{
+    for(const e of emps){
+      const phone=($('ephone_'+e.id)?.value||'').trim();
+      await api('/rest/v1/employees?id=eq.'+encodeURIComponent(e.id),{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({phone:phone||null,updated_at:new Date().toISOString()})});
+    }
+    alert('✓ تم حفظ جميع أرقام الجوالات بنجاح.');
+    await renderEmployeeAdmin();
+  }catch(e){alert('تعذر حفظ أرقام الجوالات: '+e.message)}
 }
 function getUiSettings(){try{return JSON.parse(localStorage.getItem('kas_ui_settings')||'{}')}catch{return {}}}
 function renderSettingsCenter(){
