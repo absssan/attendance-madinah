@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1f33">
-<title>شركة خالد عبدالله الصافي — فرع المدينة المنورة | نظام تحضير منسوبي الفرع</title>
+<title>شركة خالد عبدالله الصافي — فرع المدينة المنورة | نظام تحضير منسوبي الفرع V24</title>
 <style>
 :root{
  --navy:#08284a;--navy2:#0b3764;--blue:#1769b5;--blue2:#237dcc;
@@ -60,7 +60,7 @@ tr:last-child td{border-bottom:0}
 .confirm-box h3{margin:0 0 8px}.confirm-info{background:#f8fafc;border-radius:13px;padding:13px;margin:12px 0}
 .confirm-info div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e9eef3;font-size:13px}.confirm-info div:last-child{border-bottom:0}
 .report-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.report-box{border:1px solid #ddd;border-radius:10px;padding:10px;text-align:center}.report-box b{display:block;font-size:18px;margin-top:3px}
-.toolbar{display:flex;gap:8px;flex-wrap:wrap}.toolbar .btn{width:auto}.range{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}.toolbar .btn{width:auto;pointer-events:auto!important;position:relative;z-index:5}.range{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 #content>.card:first-child{border-top:4px solid #f2c400}
 @media(max-width:850px){
  .grid{grid-template-columns:repeat(2,1fr)}.empgrid{grid-template-columns:1fr 1fr}
@@ -144,6 +144,33 @@ tr:last-child td{border-bottom:0}
   body.printReportMode>*:not(#reportPrintArea){display:none!important}
   body.printReportMode #reportPrintArea{display:block!important}
 }
+
+/* V24 visual and printing fixes */
+.brandLogo{background:transparent!important;border-radius:0!important;padding:0!important;box-shadow:none!important;mix-blend-mode:multiply!important}
+.qLogo img,.printBrandQuote .logo{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
+.qHeader{border-bottom:2px solid #f2c300!important}
+.qTable tbody tr:nth-child(even){background:#f6f9fc!important}
+.qTable tbody tr:nth-child(odd){background:#fff!important}
+.qTable td{border-color:#c8d2dc!important}
+.qTable th{background:linear-gradient(180deg,#0b3764,#08284a)!important}
+.qTable tbody tr:hover{background:#eef5fb!important}
+.qTable td:nth-child(4),.qTable td:nth-child(5),.qTable td:nth-child(6),.qTable td:nth-child(7){font-weight:800}
+.qTotals .grand{background:#eaf7ee!important;border-top:2px solid #159447}
+.qBottom{grid-template-columns:1fr 48mm!important;align-items:center!important}
+.qStamp{text-align:center!important;display:flex!important;justify-content:center!important;align-items:center!important}
+.qStamp img{width:42mm!important;height:32mm!important;object-fit:contain!important;display:block!important}
+.quoteStampPrint img{width:105px!important;height:105px!important}
+.reportPrintSheet{font-family:Tahoma,Arial,sans-serif;direction:rtl;color:#10233a}
+.reportPrintSheet h1{color:#08284a;text-align:center;margin:0 0 5px;font-size:20px}
+.reportPrintSheet .printHeadMeta{text-align:center;color:#5d6d7e;font-size:10px;margin-bottom:12px}
+.reportPrintSheet table{width:100%;border-collapse:collapse;min-width:0!important;border:1px solid #aeb8c4;border-radius:0!important}
+.reportPrintSheet th{background:#08284a!important;color:#fff!important;font-weight:900}
+.reportPrintSheet th,.reportPrintSheet td{border:1px solid #c8d2dc;padding:6px;text-align:center;font-size:9px}
+.reportPrintSheet tbody tr:nth-child(even){background:#f6f9fc}
+.reportPrintSheet .report-grid{grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px}
+.reportPrintSheet .report-box{border:1px solid #c8d2dc;border-radius:7px;padding:7px;background:#fff}
+.reportPrintSheet .report-box b{font-size:14px}
+@media print{.reportPrintSheet .pageBreak{page-break-before:always}.reportPrintSheet .repPage{page-break-inside:avoid}.reportPrintSheet footer{margin-top:12px;border-top:1px solid #aaa;padding-top:7px;font-size:9px}}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 </head>
@@ -537,11 +564,10 @@ async function renderSupervisor(){
   $('content').innerHTML='<div class="card">جارٍ تحميل لوحة المشرف...</div>';
   try{
     let d=today();
-    let [emps,attRows,acts,tasks]=await Promise.all([
+    let [emps,attRows,acts]=await Promise.all([
       api('/rest/v1/employees?select=*&active=eq.true&order=name'),
       api('/rest/v1/attendance?select=*&work_date=eq.'+d),
-      api('/rest/v1/activities?select=*&order=created_at.desc&limit=1000'),
-      api('/rest/v1/government_tasks?select=*&order=created_at.desc&limit=200')
+      api('/rest/v1/activities?select=*&order=created_at.desc&limit=1000')
     ]);
     window._employees=emps;window.shiftStartSetting=(emps.find(e=>e.role==='SUPERVISOR')?.shift_start||SHIFT_START||'08:00');
     let att=Object.fromEntries(attRows.map(x=>[x.employee_id,x]));window._todayAttendance=att;
@@ -642,22 +668,58 @@ async function resetOperationalData(){
   alert('تعذر مسح السجلات: '+e.message+'\n\nتأكد من إضافة دالة supervisor_reset_operational_data في Supabase.');
  }
 }
-async function printDailyReport(){if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}let d=today(),[emps,attRows,acts]=await Promise.all([api('/rest/v1/employees?select=*&active=eq.true&order=name'),api('/rest/v1/attendance?select=*&work_date=eq.'+d),api('/rest/v1/activities?select=*&order=created_at.asc&limit=1000')]),att=Object.fromEntries(attRows.map(x=>[x.employee_id,x]));let html=printHeader('كشف الحضور والمتابعة اليومي',d)+`<div class="report-grid"><div class="report-box">الموظفون<b>${emps.length}</b></div><div class="report-box">الحاضرون<b>${attRows.filter(x=>x.check_in).length}</b></div><div class="report-box">المتأخرون<b>${attRows.filter(x=>Number(x.late_minutes||0)>0).length}</b></div></div><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحالة</th><th>سبب الحالة</th><th>الحضور</th><th>التأخير</th><th>الانصراف</th><th>آخر نشاط</th></tr></thead><tbody>${emps.map(e=>{let a=att[e.id],x=acts.find(z=>z.employee_id===e.id);return `<tr><td>${esc(e.name)}</td><td>${roleName(e.role)}</td><td>${statusOf(a)}</td><td>${esc(specialAttendanceStatus(a)?.reason||'—')}</td><td>${time(a?.check_in)}</td><td>${a?.late_minutes||0} دقيقة</td><td>${time(effectiveCheckOut(a))}</td><td>${activityName(x?.activity_type)} — ${dateTime(x?.created_at)}</td></tr>`}).join('')}</tbody></table><footer>التوقيع: __________________</footer></body></html>`;openPrintHtml(html,'report') }
-async function printRepReport(employeeId){if(me?.role!=='SUPERVISOR'&&!(me?.role==='FIELD_REP'&&employeeId===me.id)){alert('يمكن للمشرف طباعة تقارير جميع المناديب، والمندوب طباعة تقريره فقط.');return}let e=(await api('/rest/v1/employees?select=*&id=eq.'+employeeId))[0];if(!e||e.role!=='FIELD_REP'){alert('التقرير المخصص هنا للمناديب الميدانيين.');return}let d=today(),[attRows,acts]=await Promise.all([api('/rest/v1/attendance?select=*&employee_id=eq.'+employeeId+'&work_date=eq.'+d),api('/rest/v1/activities?select=*&employee_id=eq.'+employeeId+'&order=created_at.asc&limit=500')]),a=attRows[0],vis=acts.filter(x=>String(x.note||'').startsWith('VISIT_'));let rows=vis.map(x=>{let p=String(x.note||'').split('|'),arr=String(x.note||'').startsWith('VISIT_ARRIVED');return `<tr><td>${dateTime(x.created_at)}</td><td>${arr?'وصول':'مغادرة'}</td><td>${esc(p[1]||'')}</td><td>${esc(p[2]||'')}</td><td>${x.latitude!=null?Number(x.latitude).toFixed(6)+', '+Number(x.longitude).toFixed(6):'—'}</td></tr>`}).join('');let html=printHeader('تقرير المندوب الميداني — '+e.name,d)+`<div class="report-grid"><div class="report-box">الموظف<b>${esc(e.name)}</b></div><div class="report-box">الحضور<b>${time(a?.check_in)}</b></div><div class="report-box">الانصراف<b>${time(effectiveCheckOut(a))}</b></div><div class="report-box">التأخير<b>${a?.late_minutes||0} دقيقة</b></div><div class="report-box">الزيارات<b>${vis.length}</b></div><div class="report-box">الحالة<b>${statusOf(a)}</b></div></div><h3>الزيارات الميدانية</h3><table><thead><tr><th>الوقت</th><th>الحركة</th><th>العميل / الموقع</th><th>الملاحظات</th><th>GPS</th></tr></thead><tbody>${rows||'<tr><td colspan="5">لا توجد زيارات مسجلة.</td></tr>'}</tbody></table><h3 style="margin-top:18px">الأنشطة الأخرى</h3><table><thead><tr><th>الوقت</th><th>النشاط</th><th>الملاحظات</th><th>GPS</th></tr></thead><tbody>${acts.filter(x=>!String(x.note||'').startsWith('VISIT_')).map(x=>`<tr><td>${dateTime(x.created_at)}</td><td>${activityName(x.activity_type)}</td><td>${esc(x.note||'')}</td><td>${x.latitude!=null?Number(x.latitude).toFixed(6)+', '+Number(x.longitude).toFixed(6):'—'}</td></tr>`).join('')||'<tr><td colspan="4">لا توجد أنشطة أخرى.</td></tr>'}</tbody></table><footer>التوقيع: __________________</footer></body></html>`;openPrintHtml(html,'report')}
-
-async function printAllRepReports(){if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}let reps=await api('/rest/v1/employees?select=*&role=eq.FIELD_REP&active=eq.true&order=name');if(!reps.length){alert('لا يوجد مناديب ميدانيون.');return}let d=today(),parts=[];for(const e of reps){let [attRows,acts]=await Promise.all([api('/rest/v1/attendance?select=*&employee_id=eq.'+e.id+'&work_date=eq.'+d),api('/rest/v1/activities?select=*&employee_id=eq.'+e.id+'&order=created_at.asc&limit=500')]);let a=attRows[0],vis=acts.filter(x=>String(x.note||'').startsWith('VISIT_'));let rows=vis.map(x=>{let p=String(x.note||'').split('|');return `<tr><td>${dateTime(x.created_at)}</td><td>${String(x.note||'').startsWith('VISIT_ARRIVED')?'وصول':'مغادرة'}</td><td>${esc(p[1]||'')}</td><td>${esc(p[2]||'')}</td><td>${x.latitude!=null?Number(x.latitude).toFixed(6)+', '+Number(x.longitude).toFixed(6):'—'}</td></tr>`}).join('');parts.push(`<section class="repPage"><h2>تقرير المندوب: ${esc(e.name)}</h2><div class="report-grid"><div class="report-box">الحضور<b>${time(a?.check_in)}</b></div><div class="report-box">الانصراف<b>${time(effectiveCheckOut(a))}</b></div><div class="report-box">التأخير<b>${a?.late_minutes||0} دقيقة</b></div><div class="report-box">الزيارات<b>${vis.length}</b></div><div class="report-box">الحالة<b>${statusOf(a)}</b></div></div><h3>الزيارات الميدانية</h3><table><thead><tr><th>الوقت</th><th>الحركة</th><th>العميل / الموقع</th><th>الملاحظات</th><th>GPS</th></tr></thead><tbody>${rows||'<tr><td colspan="5">لا توجد زيارات مسجلة.</td></tr>'}</tbody></table></section>`)}let html=printHeader('تقارير جميع المناديب',d)+parts.join('<div class="pageBreak"></div>')+'<footer>التوقيع: __________________</footer></body></html>';openPrintHtml(html,'report')}
+function printHeader(title,dateStr){
+  return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(title)}</title><style>
+  @page{size:A4 portrait;margin:10mm}body{margin:0;background:#fff;color:#10233a;font-family:Tahoma,Arial,sans-serif}.reportPrintSheet{width:100%}
+  .reportPrintSheet .head{display:grid;grid-template-columns:1fr 100px 1fr;align-items:center;gap:12px;border-bottom:2px solid #f2c300;padding-bottom:9px;margin-bottom:10px;direction:ltr}.reportPrintSheet .head .ar{direction:rtl;text-align:right}.reportPrintSheet .head .en{direction:ltr;text-align:left}.reportPrintSheet .head img{width:88px;height:62px;object-fit:contain;justify-self:center}.reportPrintSheet .head h2{margin:0;color:#08284a;font-size:14px}.reportPrintSheet .head p{margin:3px 0;font-size:9px;font-weight:700}.reportPrintSheet h1{text-align:center;color:#08284a;font-size:18px;margin:8px 0 3px}.reportPrintSheet .meta{text-align:center;font-size:9px;color:#5d6d7e;margin-bottom:10px}.reportPrintSheet table{width:100%;border-collapse:collapse}.reportPrintSheet th{background:#08284a;color:#fff}.reportPrintSheet th,.reportPrintSheet td{border:1px solid #c8d2dc;padding:5px;text-align:center;font-size:8.5px}.reportPrintSheet tbody tr:nth-child(even){background:#f6f9fc}.reportPrintSheet footer{margin-top:12px;border-top:1px solid #aaa;padding-top:7px;font-size:9px}.reportPrintSheet .report-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.reportPrintSheet .report-box{border:1px solid #c8d2dc;border-radius:7px;padding:7px;text-align:center}.reportPrintSheet .report-box b{display:block;font-size:13px;margin-top:2px}
+  </style></head><body><div class="reportPrintSheet"><div class="head"><div class="en"><h2>KHALID ABDULLAH AL-SAFI COMPANY</h2><p>KAS TIRES — Medina Branch</p><p>Truck & Heavy Equipment Tires Specialist</p></div><img src="${document.querySelector('.brandLogo')?.src||''}" alt="KAS TIRES"><div class="ar"><h2>شركة خالد عبدالله الصافي</h2><p>فرع المدينة المنورة</p><p>إطارات الشاحنات والمعدات الثقيلة</p></div></div><h1>${esc(title)}</h1><div class="meta">التاريخ: ${esc(dateStr)} &nbsp; | &nbsp; الرقم الضريبي: 300057559400003</div>`;
+}
+async function printDailyReport(){
+  if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
+  try{
+    let d=today(),[emps,attRows,acts]=await Promise.all([api('/rest/v1/employees?select=*&active=eq.true&order=name'),api('/rest/v1/attendance?select=*&work_date=eq.'+d),api('/rest/v1/activities?select=*&order=created_at.asc&limit=1000')]);
+    let att=Object.fromEntries(attRows.map(x=>[x.employee_id,x]));
+    let html=printHeader('كشف الحضور والمتابعة اليومي',d)+`<div class="report-grid"><div class="report-box">الموظفون<b>${emps.length}</b></div><div class="report-box">الحاضرون<b>${attRows.filter(x=>x.check_in).length}</b></div><div class="report-box">المتأخرون<b>${attRows.filter(x=>Number(x.late_minutes||0)>0).length}</b></div></div><table><thead><tr><th>الموظف</th><th>الدور</th><th>الحالة</th><th>سبب الحالة</th><th>الحضور</th><th>التأخير</th><th>الانصراف</th><th>آخر نشاط</th></tr></thead><tbody>${emps.map(e=>{let a=att[e.id],x=acts.find(z=>z.employee_id===e.id);return `<tr><td>${esc(e.name)}</td><td>${roleName(e.role)}</td><td>${statusOf(a)}</td><td>${esc(specialAttendanceStatus(a)?.reason||'—')}</td><td>${time(a?.check_in)}</td><td>${a?.late_minutes||0} دقيقة</td><td>${time(effectiveCheckOut(a))}</td><td>${activityName(x?.activity_type)} — ${dateTime(x?.created_at)}</td></tr>`}).join('')}</tbody></table><footer>التوقيع: __________________</footer></div></body></html>`;
+    openPrintHtml(html,'report');
+  }catch(e){alert('تعذر تجهيز كشف الحضور للطباعة: '+e.message)}
+}
+async function printRepReport(employeeId){
+  if(me?.role!=='SUPERVISOR'&&!(me?.role==='FIELD_REP'&&employeeId===me.id)){alert('يمكن للمشرف طباعة تقارير جميع المناديب، والمندوب طباعة تقريره فقط.');return}
+  try{
+    let e=(await api('/rest/v1/employees?select=*&id=eq.'+employeeId))[0];if(!e||e.role!=='FIELD_REP'){alert('التقرير المخصص هنا للمناديب الميدانيين.');return}
+    let d=today(),[attRows,acts]=await Promise.all([api('/rest/v1/attendance?select=*&employee_id=eq.'+employeeId+'&work_date=eq.'+d),api('/rest/v1/activities?select=*&employee_id=eq.'+employeeId+'&order=created_at.asc&limit=500')]),a=attRows[0],vis=acts.filter(x=>String(x.note||'').startsWith('VISIT_'));
+    let rows=vis.map(x=>{let p=String(x.note||'').split('|'),arr=String(x.note||'').startsWith('VISIT_ARRIVED');return `<tr><td>${dateTime(x.created_at)}</td><td>${arr?'وصول':'مغادرة'}</td><td>${esc(p[1]||'')}</td><td>${esc(p[2]||'')}</td><td>${x.latitude!=null?Number(x.latitude).toFixed(6)+', '+Number(x.longitude).toFixed(6):'—'}</td></tr>`}).join('');
+    let html=printHeader('تقرير المندوب الميداني — '+e.name,d)+`<div class="report-grid"><div class="report-box">الموظف<b>${esc(e.name)}</b></div><div class="report-box">الحضور<b>${time(a?.check_in)}</b></div><div class="report-box">الانصراف<b>${time(effectiveCheckOut(a))}</b></div><div class="report-box">التأخير<b>${a?.late_minutes||0} دقيقة</b></div><div class="report-box">الزيارات<b>${vis.length}</b></div><div class="report-box">الحالة<b>${statusOf(a)}</b></div></div><h3>الزيارات الميدانية</h3><table><thead><tr><th>الوقت</th><th>الحركة</th><th>العميل / الموقع</th><th>الملاحظات</th><th>GPS</th></tr></thead><tbody>${rows||'<tr><td colspan="5">لا توجد زيارات مسجلة.</td></tr>'}</tbody></table><h3 style="margin-top:18px">الأنشطة الأخرى</h3><table><thead><tr><th>الوقت</th><th>النشاط</th><th>الملاحظات</th><th>GPS</th></tr></thead><tbody>${acts.filter(x=>!String(x.note||'').startsWith('VISIT_')).map(x=>`<tr><td>${dateTime(x.created_at)}</td><td>${activityName(x.activity_type)}</td><td>${esc(x.note||'')}</td><td>${x.latitude!=null?Number(x.latitude).toFixed(6)+', '+Number(x.longitude).toFixed(6):'—'}</td></tr>`).join('')||'<tr><td colspan="4">لا توجد أنشطة أخرى.</td></tr>'}</tbody></table><footer>التوقيع: __________________</footer></div></body></html>`;
+    openPrintHtml(html,'report');
+  }catch(e){alert('تعذر تجهيز تقرير المندوب للطباعة: '+e.message)}
+}
+async function printAllRepReports(){
+  if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
+  try{
+    let reps=await api('/rest/v1/employees?select=*&role=eq.FIELD_REP&active=eq.true&order=name');if(!reps.length){alert('لا يوجد مناديب ميدانيون.');return}
+    let d=today(),parts=[];
+    for(const e of reps){
+      let [attRows,acts]=await Promise.all([api('/rest/v1/attendance?select=*&employee_id=eq.'+e.id+'&work_date=eq.'+d),api('/rest/v1/activities?select=*&employee_id=eq.'+e.id+'&order=created_at.asc&limit=500')]);
+      let a=attRows[0],vis=acts.filter(x=>String(x.note||'').startsWith('VISIT_'));
+      let rows=vis.map(x=>{let p=String(x.note||'').split('|');return `<tr><td>${dateTime(x.created_at)}</td><td>${String(x.note||'').startsWith('VISIT_ARRIVED')?'وصول':'مغادرة'}</td><td>${esc(p[1]||'')}</td><td>${esc(p[2]||'')}</td><td>${x.latitude!=null?Number(x.latitude).toFixed(6)+', '+Number(x.longitude).toFixed(6):'—'}</td></tr>`}).join('');
+      parts.push(`<section class="repPage"><h2 style="color:#08284a">تقرير المندوب: ${esc(e.name)}</h2><div class="report-grid"><div class="report-box">الحضور<b>${time(a?.check_in)}</b></div><div class="report-box">الانصراف<b>${time(effectiveCheckOut(a))}</b></div><div class="report-box">التأخير<b>${a?.late_minutes||0} دقيقة</b></div><div class="report-box">الزيارات<b>${vis.length}</b></div><div class="report-box">الحالة<b>${statusOf(a)}</b></div></div><h3>الزيارات الميدانية</h3><table><thead><tr><th>الوقت</th><th>الحركة</th><th>العميل / الموقع</th><th>الملاحظات</th><th>GPS</th></tr></thead><tbody>${rows||'<tr><td colspan="5">لا توجد زيارات مسجلة.</td></tr>'}</tbody></table></section>`)
+    }
+    let html=printHeader('تقارير جميع المناديب',d)+parts.join('<div class="pageBreak"></div>')+'<footer>التوقيع: __________________</footer></div></body></html>';
+    openPrintHtml(html,'report');
+  }catch(e){alert('تعذر تجهيز تقارير المناديب للطباعة: '+e.message)}
+}
 
 function openPrintHtml(html,mode='report'){
-  let area=mode==='quote'?$('quotePrintArea'):$('reportPrintArea');
-  if(!area){alert('تعذر تجهيز صفحة الطباعة.');return}
-  area.innerHTML='';
-  const doc=new DOMParser().parseFromString(html,'text/html');
-  Array.from(doc.head.querySelectorAll('style')).forEach(st=>area.appendChild(st.cloneNode(true)));
-  const wrap=document.createElement('div');wrap.innerHTML=doc.body?.innerHTML||html;area.appendChild(wrap);
-  document.body.classList.add(mode==='quote'?'printQuoteMode':'printReportMode');
-  const cleanup=()=>{document.body.classList.remove(mode==='quote'?'printQuoteMode':'printReportMode');window.removeEventListener('afterprint',cleanup)};
-  window.addEventListener('afterprint',cleanup);
-  setTimeout(()=>window.print(),200);
+  document.querySelectorAll('.kasPrintFrame').forEach(x=>x.remove());
+  const frame=document.createElement('iframe');
+  frame.className='kasPrintFrame';
+  frame.setAttribute('aria-hidden','true');
+  frame.style.position='fixed';frame.style.right='-10000px';frame.style.bottom='-10000px';frame.style.width='1px';frame.style.height='1px';frame.style.border='0';
+  document.body.appendChild(frame);
+  const w=frame.contentWindow,d=frame.contentDocument;
+  d.open();d.write(html);d.close();
+  const doPrint=()=>{try{w.focus();w.print()}finally{setTimeout(()=>frame.remove(),1000)}};
+  setTimeout(doPrint,350);
 }
 async function autoClose(){if(me?.role!=='SUPERVISOR'||!afterShift())return;try{let emps=await api('/rest/v1/employees?select=id&active=eq.true'),rows=await api('/rest/v1/attendance?select=*&work_date=eq.'+today());let open=rows.filter(a=>a.check_in&&!a.check_out);for(const a of open){await api('/rest/v1/attendance?id=eq.'+a.id,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({check_out:shiftEndDate().toISOString(),updated_at:new Date().toISOString()})})}}catch(e){console.warn('autoClose',e)}}
 function schedule(){if(!afterShift()){let ms=shiftEndDate().getTime()-Date.now();if(ms>0&&ms<86400000)setTimeout(()=>location.reload(),ms+1500)}}
