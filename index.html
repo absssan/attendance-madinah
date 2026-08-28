@@ -234,6 +234,7 @@ tr:last-child td{border-bottom:0}
     <button onclick="appNavigate('notifications')"><span>🔔</span> التنبيهات</button>
     <button onclick="appNavigate('settings')"><span>⚙</span> الإعدادات</button>
     <button onclick="appNavigate('pricing')"><span>🧾</span> التسعير</button>
+    <button onclick="appNavigate('unbilled')"><span>📦</span> بضاعة غير مفوترة</button>
     <button onclick="logout()"><span>⇥</span> تسجيل الخروج</button>
   </div>
   <div class="card userbar">
@@ -510,12 +511,13 @@ function manualAttendanceModal(employeeId){if(me?.role!=='SUPERVISOR'){alert('ه
 
 function setActiveNav(key){
   document.querySelectorAll('.appNav button').forEach(b=>b.classList.remove('active'));
-  const map={dashboard:0,employees:1,reports:2,notifications:3,settings:4,pricing:5};
+  const map={dashboard:0,employees:1,reports:2,notifications:3,settings:4,pricing:5,unbilled:6};
   const b=document.querySelectorAll('.appNav button')[map[key]];
   if(b)b.classList.add('active');
 }
 async function appNavigate(key){
   if(key==='pricing' && (me?.role==='SUPERVISOR'||me?.role==='FIELD_REP')){setActiveNav('pricing');return renderPricing();}
+  if(key==='unbilled' && (me?.role==='SUPERVISOR'||me?.role==='FIELD_REP')){setActiveNav('unbilled');return renderUnbilledGoods();}
   if(me?.role!=='SUPERVISOR'){
     if(key==='dashboard')return me?.role==='GOVERNMENT_REP'?renderGov():renderField();
     alert('هذه القائمة متاحة للمشرف فقط.'); return;
@@ -689,6 +691,83 @@ function printPricing(){
   window.addEventListener('afterprint',cleanup);
   setTimeout(()=>window.print(),120);
 }
+async function renderUnbilledGoods(){
+  if(me?.role!=='SUPERVISOR'&&me?.role!=='FIELD_REP'){alert('هذه القائمة متاحة للمشرف والمناديب فقط.');return}
+  $('content').innerHTML='<div class="card"><div class="muted">جارٍ تحميل سجل البضاعة غير المفوترة...</div></div>';
+  try{
+    const [emps,goods]=await Promise.all([
+      api('/rest/v1/employees?select=id,name,role&active=eq.true&order=name'),
+      me?.role==='SUPERVISOR'
+        ? api('/rest/v1/unbilled_goods?select=*&order=issue_date.desc,created_at.desc')
+        : api('/rest/v1/unbilled_goods?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&order=issue_date.desc,created_at.desc')
+    ]);
+    const reps=emps.filter(e=>e.role==='FIELD_REP'), empMap=Object.fromEntries(emps.map(e=>[e.id,e]));
+    const todayDate=today();
+    const employeeField=me?.role==='SUPERVISOR'
+      ? `<div class="field"><label>المندوب</label><select id="ugEmployee">${reps.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</select></div>`
+      : `<div class="field"><label>المندوب</label><input value="${esc(me.name)}" readonly></div>`;
+    $('content').innerHTML=`
+      <div class="card">
+        <div class="sectionhead"><h3 class="iconTitle"><span class="ico">📦</span> البضاعة غير المفوترة</h3><span class="pill p-orange">سجل متابعة</span></div>
+        <div class="muted" style="margin-bottom:12px">سجل الأصناف المصروفة للعميل، مع متابعة حالتها حتى إصدار الفاتورة. ${me?.role==='SUPERVISOR'?'يمكنك إدارة بضاعة جميع المناديب.':'يظهر لك سجل بضاعتك فقط.'}</div>
+        <div class="unbilledForm">
+          ${employeeField}
+          <div class="field"><label>اسم العميل</label><input id="ugCustomer" placeholder="اسم العميل"></div>
+          <div class="field"><label>مقاس الإطار</label><input id="ugSize" placeholder="مثال: 12R22.5"></div>
+          <div class="field"><label>اسم الإطار</label><input id="ugName" placeholder="اسم / ماركة الإطار"></div>
+          <div class="field"><label>نوع الإطار</label><input id="ugType" placeholder="شاحنة / معدات / زراعي..."></div>
+          <div class="field"><label>تاريخ الصرف</label><input id="ugDate" type="date" value="${todayDate}"></div>
+          <div class="field full"><label>رقم فسح الخروج من المستودع</label><input id="ugRelease" placeholder="رقم الفسح / إذن الخروج"></div>
+          <div class="field"><button class="btn" onclick="saveUnbilledGood()">💾 حفظ الصنف</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="sectionhead"><h3>📋 سجل المتابعة</h3><div class="actionRow no-print"><button class="btn secondary small" onclick="printUnbilledGoods()">🖨️ طباعة السجل</button><button class="btn secondary small" onclick="renderUnbilledGoods()">↻ تحديث</button></div></div>
+        <div class="unbilledSummary"><div class="stat"><div class="label">إجمالي السجلات</div><div class="num blue">${goods.length}</div></div><div class="stat"><div class="label">غير مفوتر</div><div class="num orange">${goods.filter(x=>(x.status||'UNBILLED')==='UNBILLED').length}</div></div><div class="stat"><div class="label">تمت فوترته</div><div class="num green">${goods.filter(x=>x.status==='INVOICED').length}</div></div></div>
+        <div class="tablewrap" style="margin-top:12px"><table class="unbilledTable"><thead><tr><th>م</th>${me?.role==='SUPERVISOR'?'<th>المندوب</th>':''}<th>اسم العميل</th><th>المقاس</th><th>اسم الإطار</th><th>النوع</th><th>تاريخ الصرف</th><th>رقم الفسح</th><th>الحالة</th><th>رقم الفاتورة</th><th>تاريخ الفاتورة</th><th class="no-print">إجراء</th></tr></thead><tbody>
+        ${goods.map((g,i)=>{const st=g.status||'UNBILLED';return `<tr><td>${i+1}</td>${me?.role==='SUPERVISOR'?`<td><b>${esc(empMap[g.employee_id]?.name||'—')}</b></td>`:''}<td>${esc(g.customer_name)}</td><td>${esc(g.tire_size)}</td><td>${esc(g.tire_name)}</td><td>${esc(g.tire_type||'—')}</td><td>${esc(g.issue_date||'—')}</td><td>${esc(g.warehouse_release_no||'—')}</td><td><span class="pill ${st==='INVOICED'?'p-green':'p-orange'}">${st==='INVOICED'?'تم إصدار الفاتورة':'غير مفوتر'}</span></td><td>${esc(g.invoice_number||'—')}</td><td>${esc(g.invoice_date||'—')}</td><td class="no-print"><div class="actionRow"><button class="btn small" onclick="toggleUnbilledInvoice('${g.id}','${st}','${esc(g.invoice_number||'').replace(/'/g,'&#39;')}','${esc(g.invoice_date||'').replace(/'/g,'&#39;')}')">${st==='INVOICED'?'↩ إعادة كغير مفوتر':'🧾 إصدار فاتورة'}</button>${me?.role==='SUPERVISOR'?`<button class="btn danger small" onclick="deleteUnbilledGood('${g.id}')">🗑️ حذف</button>`:''}</div></td></tr>`}).join('')||`<tr><td class="unbilledEmpty" colspan="${me?.role==='SUPERVISOR'?12:11}">لا توجد سجلات.</td></tr>`}
+        </tbody></table></div>
+      </div>`;
+  }catch(e){$('content').innerHTML='<div class="card msg err">تعذر تحميل سجل البضاعة غير المفوترة: '+esc(e.message)+'</div>'}
+}
+async function saveUnbilledGood(){
+  if(me?.role!=='SUPERVISOR'&&me?.role!=='FIELD_REP'){alert('هذه الصلاحية للمشرف والمناديب فقط.');return}
+  const employeeId=me?.role==='SUPERVISOR'?$('ugEmployee')?.value:me?.id;
+  const customer=($('ugCustomer')?.value||'').trim(),size=($('ugSize')?.value||'').trim(),name=($('ugName')?.value||'').trim(),type=($('ugType')?.value||'').trim(),date=$('ugDate')?.value||today(),release=($('ugRelease')?.value||'').trim();
+  if(!employeeId||!customer||!size||!name||!date||!release){alert('أكمل اسم العميل والمقاس واسم الإطار وتاريخ الصرف ورقم فسح الخروج.');return}
+  try{await api('/rest/v1/unbilled_goods',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:employeeId,customer_name:customer,tire_size:size,tire_name:name,tire_type:type||null,issue_date:date,warehouse_release_no:release,status:'UNBILLED',invoice_number:null,invoice_date:null,updated_at:new Date().toISOString()})});alert('✓ تم حفظ البضاعة غير المفوترة.');await renderUnbilledGoods()}catch(e){alert('تعذر حفظ السجل: '+e.message)}
+}
+function showInvoiceModal(id,current,invoiceNumber='',invoiceDate=''){
+  const old=$('invoiceModal');if(old)old.remove();
+  const isInvoiced=current==='INVOICED';
+  const modal=document.createElement('div');modal.id='invoiceModal';modal.className='confirm-overlay';
+  modal.innerHTML=`<div class="confirm-box" style="max-width:520px;width:92%"><div class="sectionhead"><h3>🧾 ${isInvoiced?'تعديل بيانات الفاتورة':'إصدار الفاتورة'}</h3><button class="btn secondary small" id="closeInvoiceModal">إغلاق</button></div><div class="muted" style="margin-bottom:12px">${isInvoiced?'يمكنك تعديل رقم الفاتورة وتاريخها ثم حفظ التعديل.':'حوّل السجل من «غير مفوتر» إلى «تم إصدار الفاتورة» بعد إصدار الفاتورة فعليًا.'}</div><div class="field"><label>رقم الفاتورة</label><input id="invoiceNumberInput" type="text" inputmode="text" placeholder="أدخل رقم الفاتورة" value="${esc(invoiceNumber)}"></div><div class="field"><label>تاريخ الفاتورة</label><input id="invoiceDateInput" type="date" value="${esc(invoiceDate||today())}"></div><div class="actionRow" style="margin-top:14px"><button class="btn" id="saveInvoiceModal">💾 حفظ</button>${isInvoiced?'<button class="btn secondary" id="backToUnbilled">↩ إعادة كغير مفوتر</button>':''}</div><div id="invoiceModalMsg" style="margin-top:10px"></div></div>`;
+  document.body.appendChild(modal);
+  $('closeInvoiceModal').onclick=()=>modal.remove();
+  $('saveInvoiceModal').onclick=async()=>{
+    const invoice=$('invoiceNumberInput').value.trim(),invDate=$('invoiceDateInput').value;
+    if(!invoice){$('invoiceModalMsg').innerHTML='<div class="msg err">رقم الفاتورة مطلوب.</div>';return}
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(invDate)){$('invoiceModalMsg').innerHTML='<div class="msg err">اختر تاريخ فاتورة صحيحًا.</div>';return}
+    try{await api('/rest/v1/unbilled_goods?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'INVOICED',invoice_number:invoice,invoice_date:invDate,updated_at:new Date().toISOString()})});modal.remove();await renderUnbilledGoods()}catch(e){$('invoiceModalMsg').innerHTML='<div class="msg err">تعذر حفظ بيانات الفاتورة: '+esc(e.message)+'</div>'}
+  };
+  if(isInvoiced)$('backToUnbilled').onclick=async()=>{if(!confirm('هل تريد إعادة هذا السجل إلى حالة «غير مفوتر»؟'))return;try{await api('/rest/v1/unbilled_goods?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'UNBILLED',invoice_number:null,invoice_date:null,updated_at:new Date().toISOString()})});modal.remove();await renderUnbilledGoods()}catch(e){$('invoiceModalMsg').innerHTML='<div class="msg err">تعذر تعديل الحالة: '+esc(e.message)+'</div>'}};
+}
+async function toggleUnbilledInvoice(id,current,invoiceNumber='',invoiceDate=''){if(!id)return;showInvoiceModal(id,current,invoiceNumber,invoiceDate)}
+
+async function deleteUnbilledGood(id){if(!id)return;if(!confirm('هل تريد حذف هذا السجل من البضاعة غير المفوترة؟'))return;try{await api('/rest/v1/unbilled_goods?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{Prefer:'return=minimal'}});await renderUnbilledGoods()}catch(e){alert('تعذر حذف السجل: '+e.message)}}
+async function printUnbilledGoods(){
+  if(me?.role!=='SUPERVISOR'&&me?.role!=='FIELD_REP'){alert('هذه الصلاحية للمشرف والمناديب فقط.');return}
+  const printWin=openPrintWindow();if(!printWin)return;
+  try{
+    const [emps,goods]=await Promise.all([api('/rest/v1/employees?select=id,name,role&active=eq.true&order=name'),me?.role==='SUPERVISOR'?api('/rest/v1/unbilled_goods?select=*&order=issue_date.desc,created_at.desc'):api('/rest/v1/unbilled_goods?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&order=issue_date.desc,created_at.desc')]);
+    const empMap=Object.fromEntries(emps.map(e=>[e.id,e]));
+    const rows=goods.map((g,i)=>{const st=g.status||'UNBILLED';return `<tr><td>${i+1}</td>${me?.role==='SUPERVISOR'?`<td>${esc(empMap[g.employee_id]?.name||'—')}</td>`:''}<td>${esc(g.customer_name)}</td><td>${esc(g.tire_size)}</td><td>${esc(g.tire_name)}</td><td>${esc(g.tire_type||'—')}</td><td>${esc(g.issue_date||'—')}</td><td>${esc(g.warehouse_release_no||'—')}</td><td>${st==='INVOICED'?'تم إصدار الفاتورة':'غير مفوتر'}</td><td>${esc(g.invoice_number||'—')}</td><td>${esc(g.invoice_date||'—')}</td></tr>`}).join('')||`<tr><td colspan="${me?.role==='SUPERVISOR'?11:10}">لا توجد سجلات.</td></tr>`;
+    const title=me?.role==='SUPERVISOR'?'سجل البضاعة غير المفوترة ومتابعة الفواتير — جميع المناديب':'سجل البضاعة غير المفوترة ومتابعة الفواتير — '+me.name;
+    const head=printHeader(title,today());
+    const html=head+`<div class="unbilledPrintSheet"><table><thead><tr><th>م</th>${me?.role==='SUPERVISOR'?'<th>المندوب</th>':''}<th>اسم العميل</th><th>مقاس الإطار</th><th>اسم الإطار</th><th>نوع الإطار</th><th>تاريخ الصرف</th><th>رقم فسح الخروج</th><th>الحالة</th><th>رقم الفاتورة</th><th>تاريخ الفاتورة</th></tr></thead><tbody>${rows}</tbody></table><footer>إجمالي السجلات: ${goods.length} &nbsp; | &nbsp; غير مفوتر: ${goods.filter(x=>(x.status||'UNBILLED')==='UNBILLED').length} &nbsp; | &nbsp; تمت فوترته: ${goods.filter(x=>x.status==='INVOICED').length}<span style="display:block;margin-top:4px;font-size:9px;opacity:.65">ABSSAN</span></footer></div></div></body></html>`;
+    writePrintWindow(printWin,html);
+  }catch(e){try{printWin.close()}catch(_){}alert('تعذر تجهيز سجل البضاعة للطباعة: '+e.message)}
+}
 function renderPricing(){$('content').innerHTML=`<div class="card"><div class="sectionhead"><h3 class="iconTitle"><span class="ico">🧾</span> التسعير</h3><span class="pill p-blue">المشرف والمندوب</span></div><div class="muted" style="margin-bottom:10px">اكتب المقاس والماركة والنقشة والسعر قبل الضريبة والكمية. يتم حساب ضريبة 15% والإجمالي شامل الضريبة لكل صف، ثم جمع الإجمالي الكلي. الصفوف الفارغة لن تظهر في الطباعة.</div><div class="tablewrap"><table class="pricingTable" style="min-width:1180px"><thead><tr><th>#</th><th>المقاس</th><th>الماركة</th><th>النقشة</th><th>السعر قبل الضريبة</th><th>الكمية</th><th>ضريبة 15%</th><th>الإجمالي بعد الضريبة</th></tr></thead><tbody>${Array.from({length:10},(_,i)=>pricingRow(i+1)).join('')}</tbody></table></div><div class="priceTotals" style="margin-top:12px"><div class="stat"><div class="label">الإجمالي قبل الضريبة</div><div class="num blue" id="pNet">0.00 ر.س</div></div><div class="stat"><div class="label">VAT 15%</div><div class="num orange" id="pVat">0.00 ر.س</div></div><div class="stat"><div class="label">الإجمالي الكلي شامل الضريبة</div><div class="num green" id="pGrand">0.00 ر.س</div></div><div class="amountWords"><div class="muted">المبلغ كتابة</div><div id="pWords">صفر ريال سعودي</div></div></div><div class="repContact" style="grid-template-columns:1fr"><div class="field"><label>اسم المندوب / معدّ التسعيرة</label><input id="repName" value="${esc(me?.name||'')}" readonly></div><div class="field"><label>رقم جوال المندوب للتواصل</label><input id="repPhone" type="tel" inputmode="tel" placeholder="05xxxxxxxx" value="${esc(localStorage.getItem('kas_rep_phone')||'')}"></div></div><div class="quoteNotice">⚠️ تنبيه مهم: هذه تسعيرة وليست فاتورة. الأسعار والكميات قابلة للتغيير والتعديل حسب التوفر والاتفاق النهائي.</div><div class="actionRow no-print" style="margin-top:12px"><button class="btn small" onclick="printPricing()">🖨️ طباعة التسعيرة</button><button class="btn secondary small" onclick="clearPricing()">🧹 مسح</button>${me?.role==='SUPERVISOR'?'<button class="btn secondary small" onclick="renderSupervisor()">↩ العودة للوحة</button>':''}</div></div>`;calcPricing()}
 async function renderField(){if(afterShift()){}$('content').innerHTML=`<div class="card"><div class="sectionhead"><h3>دوامي اليوم</h3><span class="pill p-blue">${today()}</span></div><div id="myDay">جارٍ التحميل...</div></div><div class="card"><div class="sectionhead"><h3>موقع حضوري</h3><span class="muted">آخر موقع محدد يظهر للمشرف</span></div><div id="myMap" class="map"></div></div><div class="card"><div class="sectionhead"><h3>التسعير والمتابعة</h3><button class="btn secondary small" onclick="appNavigate('pricing')">🧾 التسعير</button></div><div class="muted">يمكنك إنشاء وطباعة عرض التسعير دون تعديل سجل الحضور.</div></div><div class="card"><h3>المتابعة الميدانية</h3><div class="field"><label>اسم العميل / الموقع</label><input id="visitCustomer" placeholder="مثال: مؤسسة فلان"></div><div class="actions"><button class="btn" onclick="recordVisit('ARRIVED')">📍 وصلت للموقع</button><button class="btn secondary" onclick="recordVisit('LEFT')">🚗 غادرت الموقع</button></div><div class="field"><label>حالة النشاط</label><select id="actType"><option value="VISIT_CUSTOMER">زيارة عميل</option><option value="TRAVELING">في الطريق</option><option value="BRANCH">في الفرع</option><option value="OTHER">نشاط آخر</option></select></div><div class="field"><label>ملاحظة</label><input id="actNote" placeholder="مقابلة العميل / متابعة عرض / طلب تسعير"></div><button class="btn secondary" onclick="sendActivity()">تحديث النشاط + الموقع</button><div id="actMsg"></div></div><div class="card"><h3>سجل نشاطي اليوم</h3><div id="myActs">جارٍ التحميل...</div></div>`;await loadField()}
 async function loadField(){let d=today(),rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+me.id+'&work_date=eq.'+d),a=rows[0];if(isHolidayToday(me))$('myDay').innerHTML=holidayAccessMessage(me);else if(!a?.check_in&&afterShift())$('myDay').innerHTML=shiftMessage();else $('myDay').innerHTML=`<div class="actions">${a?.check_in?`<div class="stat"><div class="label">وقت الحضور</div><div class="num green">${time(a.check_in)}</div></div>`:`<button class="btn" onclick="fieldCheckIn()">📍 تسجيل وتأكيد الحضور</button>`}${a?.check_out?`<div class="stat"><div class="label">الانصراف</div><div class="num">${time(a.check_out)}</div></div>`:a?.check_in?`<button class="btn secondary" onclick="fieldCheckOut()">🚪 تأكيد الانصراف</button>`:''}</div>${a?.late_minutes?`<div class="msg err">تأخير اليوم: ${a.late_minutes} دقيقة</div>`:''}${me?.role==='FIELD_REP'?`<div class="actionRow" style="margin-top:10px"><button class="btn secondary small" onclick="printRepReport('${me.id}')">🖨️ طباعة تقريري</button></div>`:''}`;if(a?.start_latitude)drawMyMap(a.start_latitude,a.start_longitude,me.name);else drawMyMap(24.47,39.61,'بانتظار الموقع');let acts=await api('/rest/v1/activities?select=*&employee_id=eq.'+me.id+'&order=created_at.desc&limit=100');$('myActs').innerHTML=acts.filter(x=>String(x.created_at||'').slice(0,10)===d).map(x=>`<div class="activity"><b>${activityName(x.activity_type)}</b><div class="muted">${dateTime(x.created_at)} — ${esc(x.note||'بدون ملاحظة')}</div></div>`).join('')||'<div class="muted">لا يوجد نشاط مسجل اليوم.</div>'}
@@ -721,7 +800,20 @@ function printHeader(title,dateStr){
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(title)}</title><style>
   @page{size:A4 portrait;margin:10mm}body{margin:0;background:#fff;color:#10233a;font-family:Tahoma,Arial,sans-serif}.reportPrintSheet{width:100%}
   .reportPrintSheet .head{display:grid;grid-template-columns:1fr 100px 1fr;align-items:center;gap:12px;border-bottom:2px solid #f2c300;padding-bottom:9px;margin-bottom:10px;direction:ltr}.reportPrintSheet .head .ar{direction:rtl;text-align:right}.reportPrintSheet .head .en{direction:ltr;text-align:left}.reportPrintSheet .head img{width:88px;height:62px;object-fit:contain;justify-self:center}.reportPrintSheet .head h2{margin:0;color:#08284a;font-size:14px}.reportPrintSheet .head p{margin:3px 0;font-size:9px;font-weight:700}.reportPrintSheet h1{text-align:center;color:#08284a;font-size:18px;margin:8px 0 3px}.reportPrintSheet .meta{text-align:center;font-size:9px;color:#5d6d7e;margin-bottom:10px}.reportPrintSheet table{width:100%;border-collapse:collapse}.reportPrintSheet th{background:#08284a;color:#fff}.reportPrintSheet th,.reportPrintSheet td{border:1px solid #c8d2dc;padding:5px;text-align:center;font-size:8.5px}.reportPrintSheet tbody tr:nth-child(even){background:#f6f9fc}.reportPrintSheet footer{margin-top:12px;border-top:1px solid #aaa;padding-top:7px;font-size:9px}.reportPrintSheet .report-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.reportPrintSheet .report-box{border:1px solid #c8d2dc;border-radius:7px;padding:7px;text-align:center}.reportPrintSheet .report-box b{display:block;font-size:13px;margin-top:2px}
-  </style></head><body><div class="reportPrintSheet"><div class="head"><div class="en"><h2>KHALID ABDULLAH AL-SAFI COMPANY</h2><p>KAS TIRES — Medina Branch</p><p>Truck & Heavy Equipment Tires Specialist</p></div><img src="${document.querySelector('.brandLogo')?.src||''}" alt="KAS TIRES"><div class="ar"><h2>شركة خالد عبدالله الصافي</h2><p>فرع المدينة المنورة</p><p>إطارات الشاحنات والمعدات الثقيلة</p></div></div><h1>${esc(title)}</h1><div class="meta">التاريخ: ${esc(dateStr)} &nbsp; | &nbsp; الرقم الضريبي: 300057559400003</div>`;
+  
+/* V24 unbilled goods tracking */
+.unbilledForm{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr 1fr 1fr;gap:10px;align-items:end}
+.unbilledForm .field{margin:0}.unbilledForm .full{grid-column:span 2}
+.unbilledTable{width:100%;min-width:980px;border-collapse:separate;border-spacing:0;overflow:hidden;border:1px solid #cbd6e2;border-radius:14px}
+.unbilledTable th{background:linear-gradient(180deg,#0d477d,#08284a);color:#fff;border-color:#173e63;font-weight:900}
+.unbilledTable td{border-color:#d8e1ea;padding:10px 8px;text-align:center}
+.unbilledTable tbody tr:nth-child(even){background:#f5f8fc}.unbilledTable tbody tr:nth-child(odd){background:#fff}
+.unbilledTable tbody tr:hover{background:#fff8df}.unbilledEmpty{text-align:center;padding:28px!important;color:#718096}
+.unbilledSummary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+@media(max-width:900px){.unbilledForm{grid-template-columns:1fr 1fr}.unbilledForm .full{grid-column:span 2}}
+@media(max-width:600px){.unbilledForm{grid-template-columns:1fr}.unbilledForm .full{grid-column:span 1}.unbilledSummary{grid-template-columns:1fr 1fr}}
+@media print{.unbilledTable{min-width:0!important}.unbilledTable th,.unbilledTable td{font-size:9px;padding:6px}.unbilledPrintSheet{direction:rtl;font-family:Tahoma,Arial,sans-serif}}
+</style></head><body><div class="reportPrintSheet"><div class="head"><div class="en"><h2>KHALID ABDULLAH AL-SAFI COMPANY</h2><p>KAS TIRES — Medina Branch</p><p>Truck & Heavy Equipment Tires Specialist</p></div><img src="${document.querySelector('.brandLogo')?.src||''}" alt="KAS TIRES"><div class="ar"><h2>شركة خالد عبدالله الصافي</h2><p>فرع المدينة المنورة</p><p>إطارات الشاحنات والمعدات الثقيلة</p></div></div><h1>${esc(title)}</h1><div class="meta">التاريخ: ${esc(dateStr)} &nbsp; | &nbsp; الرقم الضريبي: 300057559400003</div>`;
 }
 async function printDailyReport(){
   if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
