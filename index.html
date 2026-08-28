@@ -1047,12 +1047,53 @@ async function printUnbilledGoods(){
   if(me?.role!=='SUPERVISOR'&&me?.role!=='FIELD_REP'){alert('هذه الصلاحية للمشرف والمناديب فقط.');return}
   const printWin=openPrintWindow();if(!printWin)return;
   try{
-    const [emps,goods]=await Promise.all([api('/rest/v1/employees?select=id,name,role&active=eq.true&order=name'),me?.role==='SUPERVISOR'?api('/rest/v1/unbilled_goods?select=*&order=issue_date.desc,created_at.desc'):api('/rest/v1/unbilled_goods?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&order=issue_date.desc,created_at.desc')]);
+    const [emps,goods]=await Promise.all([
+      api('/rest/v1/employees?select=id,name,role&active=eq.true&order=name'),
+      me?.role==='SUPERVISOR'
+        ?api('/rest/v1/unbilled_goods?select=*&order=issue_date.desc,created_at.desc&limit=10000')
+        :api('/rest/v1/unbilled_goods?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&order=issue_date.desc,created_at.desc&limit=10000')
+    ]);
     const empMap=Object.fromEntries(emps.map(e=>[e.id,e]));
-    const rows=goods.map((g,i)=>{const st=g.status||'UNBILLED';return `<tr><td>${i+1}</td>${me?.role==='SUPERVISOR'?`<td>${esc(empMap[g.employee_id]?.name||'—')}</td>`:''}<td>${esc(g.customer_name)}</td><td>${esc(g.tire_size)}</td><td>${esc(g.tire_name)}</td><td>${esc(g.tire_type||'—')}</td><td>${esc(g.issue_date||'—')}</td><td>${esc(g.warehouse_release_no||'—')}</td><td>${st==='INVOICED'?'تم إصدار الفاتورة':'غير مفوتر'}</td><td>${esc(g.invoice_number||'—')}</td><td>${esc(g.invoice_date||'—')}</td></tr>`}).join('')||`<tr><td colspan="${me?.role==='SUPERVISOR'?11:10}">لا توجد سجلات.</td></tr>`;
-    const title=me?.role==='SUPERVISOR'?'سجل البضاعة غير المفوترة ومتابعة الفواتير — جميع المناديب':'سجل البضاعة غير المفوترة ومتابعة الفواتير — '+me.name;
+    const rows=goods.map((g,i)=>{
+      const st=g.status||'UNBILLED';
+      return `<tr>
+        <td>${i+1}</td>
+        ${me?.role==='SUPERVISOR'?`<td>${esc(empMap[g.employee_id]?.name||'—')}</td>`:''}
+        <td>${esc(g.customer_name||'—')}</td>
+        <td>${esc(g.tire_size||'—')}</td>
+        <td>${esc(g.tire_name||'—')}</td>
+        <td>${esc(g.tire_type||'—')}</td>
+        <td>${Number(g.qty??1).toLocaleString('en-US')}</td>
+        <td>${esc(g.issue_date||'—')}</td>
+        <td>${esc(g.warehouse_release_no||'—')}</td>
+        <td>${st==='INVOICED'?'تم إصدار الفاتورة':'غير مفوتر'}</td>
+        <td>${esc(g.invoice_number||'—')}</td>
+        <td>${esc(g.invoice_date||'—')}</td>
+      </tr>`;
+    }).join('')||`<tr><td colspan="${me?.role==='SUPERVISOR'?12:11}">لا توجد سجلات.</td></tr>`;
+
+    const title=me?.role==='SUPERVISOR'
+      ?'السجل الكامل للبضاعة المخرجة من المستودع — جميع المناديب'
+      :'السجل الكامل للبضاعة المخرجة من المستودع — '+me.name;
     const head=printHeader(title,today());
-    const html=head+`<div class="unbilledPrintSheet"><table><thead><tr><th>م</th>${me?.role==='SUPERVISOR'?'<th>المندوب</th>':''}<th>اسم العميل</th><th>مقاس الإطار</th><th>اسم الإطار</th><th>نوع الإطار</th><th>تاريخ الصرف</th><th>رقم فسح الخروج</th><th>الحالة</th><th>رقم الفاتورة</th><th>تاريخ الفاتورة</th></tr></thead><tbody>${rows}</tbody></table><footer>إجمالي السجلات: ${goods.length} &nbsp; | &nbsp; غير مفوتر: ${goods.filter(x=>(x.status||'UNBILLED')==='UNBILLED').length} &nbsp; | &nbsp; تمت فوترته: ${goods.filter(x=>x.status==='INVOICED').length}<span style="display:block;margin-top:4px;font-size:9px;opacity:.65">ABSSAN</span></footer></div></div></body></html>`;
+    const unbilledCount=goods.filter(x=>(x.status||'UNBILLED')==='UNBILLED').length;
+    const invoicedCount=goods.filter(x=>x.status==='INVOICED').length;
+    const totalQty=goods.reduce((a,x)=>a+Number(x.qty??1),0);
+
+    const html=head+`<div class="unbilledPrintSheet">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 12px">
+        <div style="border:1px solid #c8d2dc;padding:8px;text-align:center"><b>عدد السجلات</b><br>${goods.length}</div>
+        <div style="border:1px solid #c8d2dc;padding:8px;text-align:center"><b>إجمالي الكمية</b><br>${totalQty.toLocaleString('en-US')}</div>
+        <div style="border:1px solid #c8d2dc;padding:8px;text-align:center"><b>غير مفوتر / مفوتر</b><br>${unbilledCount} / ${invoicedCount}</div>
+      </div>
+      <table><thead><tr>
+        <th>م</th>${me?.role==='SUPERVISOR'?'<th>المندوب</th>':''}
+        <th>اسم العميل</th><th>مقاس الإطار</th><th>اسم الإطار</th><th>نوع الإطار</th>
+        <th>الكمية</th><th>تاريخ الصرف</th><th>رقم فسح الخروج</th>
+        <th>الحالة</th><th>رقم الفاتورة</th><th>تاريخ الفاتورة</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      <footer>إجمالي السجلات: ${goods.length} &nbsp; | &nbsp; إجمالي الكمية: ${totalQty.toLocaleString('en-US')} &nbsp; | &nbsp; غير مفوتر: ${unbilledCount} &nbsp; | &nbsp; تمت فوترته: ${invoicedCount}<span style="display:block;margin-top:4px;font-size:9px;opacity:.65">ABSSAN</span></footer>
+    </div></div></body></html>`;
     writePrintWindow(printWin,html);
   }catch(e){try{printWin.close()}catch(_){}alert('تعذر تجهيز سجل البضاعة للطباعة: '+e.message)}
 }
@@ -1062,16 +1103,76 @@ function clearCustodyRow(i){['cuDoc_','cuReason_','cuAmount_','cuBeneficiary_'].
 function addCustodyRow(){const body=$('custodyBody');if(!body)return;const i=body.querySelectorAll('tr').length+1;body.insertAdjacentHTML('beforeend',custodyRow(i));}
 async function saveCustodyRows(){
   if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
-  const body=$('custodyBody');if(!body)return;const rows=[];
-  body.querySelectorAll('tr').forEach((tr,idx)=>{const i=idx+1;const id=tr.dataset.custodyId||null,date=$('cuDate_'+i)?.value||today(),doc=$('cuDoc_'+i)?.value.trim()||'',reason=$('cuReason_'+i)?.value.trim()||'',amount=Number($('cuAmount_'+i)?.value||0),benef=$('cuBeneficiary_'+i)?.value.trim()||'',status=$('cuStatus_'+i)?.value||'مكتمل';if(doc||reason||amount||benef||id)rows.push({id,date,doc,reason,amount,benef,status,i})});
-  if(rows.some(r=>!r.reason||r.amount<0)){alert('أكمل سبب الصرف والمبلغ لكل سطر مستخدم.');return}
-  const month=$('custodyMonth')?.value||today().slice(0,7)+'-01';const opening=Number($('custodyOpening')?.value||0);
-  const msg=$('custodyMsg');if(msg)msg.innerHTML='<div class="msg">جارٍ حفظ سجل العهدة للشهر المحدد...</div>';
+  const body=$('custodyBody');if(!body)return;
+  const rows=[];
+  body.querySelectorAll('tr').forEach((tr,idx)=>{
+    const i=idx+1,id=tr.dataset.custodyId||null,
+      date=$('cuDate_'+i)?.value||today(),
+      doc=$('cuDoc_'+i)?.value.trim()||'',
+      reason=$('cuReason_'+i)?.value.trim()||'',
+      amount=Number($('cuAmount_'+i)?.value||0),
+      benef=$('cuBeneficiary_'+i)?.value.trim()||'',
+      status=$('cuStatus_'+i)?.value||'مكتمل';
+    if(doc||reason||amount||benef||id)rows.push({id,date,doc,reason,amount,benef,status,i});
+  });
+  if(rows.some(r=>!r.reason||!Number.isFinite(r.amount)||r.amount<0)){
+    alert('أكمل سبب الصرف والمبلغ لكل سطر مستخدم.');return
+  }
+  const monthRaw=$('custodyMonth')?.value||today().slice(0,7);
+  const month=monthRaw.slice(0,7)+'-01';
+  const opening=Number($('custodyOpening')?.value||0);
+  const carryover=Number($('custodyCarryover')?.value||0);
+  if(!Number.isFinite(opening)||opening<0||!Number.isFinite(carryover)||carryover<0){
+    alert('تحقق من مبلغ العهدة والمتبقي المرحل. لا يمكن إدخال مبلغ سالب.');return
+  }
+  const msg=$('custodyMsg');
+  if(msg)msg.innerHTML='<div class="msg">جارٍ حفظ سجل العهدة للشهر المحدد...</div>';
   try{
-    await api('/rest/v1/supervisor_custody_months?on_conflict=month_date',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({month_date:month,opening_balance:opening,created_by:me.id,updated_at:new Date().toISOString()})});
-    for(const r of rows){const files=[...($('cuFiles_'+r.i)?.files||[])].filter(f=>f.type.startsWith('image/'));let attachments=[];if(r.id){const old=(await api('/rest/v1/supervisor_custody_expenses?select=attachments&id=eq.'+encodeURIComponent(r.id)))[0];attachments=Array.isArray(old?.attachments)?old.attachments:[]}for(const f of files)attachments.push(await compressCustodyFile(f));const payload={expense_date:r.date,custody_month:month,document_no:r.doc||null,expense_reason:r.reason,amount:r.amount,beneficiary:r.benef||null,document_status:r.status,attachments,created_by:me.id,updated_at:new Date().toISOString()};if(r.id)await api('/rest/v1/supervisor_custody_expenses?id=eq.'+encodeURIComponent(r.id),{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)});else await api('/rest/v1/supervisor_custody_expenses',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)});}
-    if(msg)msg.innerHTML='<div class="msg ok">✓ تم حفظ سجل العهدة للشهر المحدد بدون تكرار البنود.</div>';await renderCustody();
-  }catch(e){if(msg)msg.innerHTML='<div class="msg err">تعذر حفظ سجل العهدة: '+esc(e.message)+'</div>'}
+    // Save the monthly header explicitly. This avoids relying on upsert behavior
+    // and also preserves the carryover amount.
+    const found=await api('/rest/v1/supervisor_custody_months?select=id&month_date=eq.'+encodeURIComponent(month));
+    const monthPayload={month_date:month,opening_balance:opening,carryover_balance:carryover,created_by:me.id,updated_at:new Date().toISOString()};
+    if(found[0]?.id){
+      await api('/rest/v1/supervisor_custody_months?id=eq.'+encodeURIComponent(found[0].id),{
+        method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(monthPayload)
+      });
+    }else{
+      await api('/rest/v1/supervisor_custody_months',{
+        method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(monthPayload)
+      });
+    }
+
+    for(const r of rows){
+      const files=[...($('cuFiles_'+r.i)?.files||[])].filter(f=>f.type.startsWith('image/'));
+      let attachments=[];
+      if(r.id){
+        const old=(await api('/rest/v1/supervisor_custody_expenses?select=attachments&id=eq.'+encodeURIComponent(r.id)))[0];
+        attachments=Array.isArray(old?.attachments)?old.attachments:[];
+      }
+      for(const f of files)attachments.push(await compressCustodyFile(f));
+
+      // opening_balance is NOT NULL in the database and must be supplied for every expense row.
+      const payload={
+        expense_date:r.date,custody_month:month,document_no:r.doc||null,
+        expense_reason:r.reason,amount:r.amount,beneficiary:r.benef||null,
+        document_status:r.status,attachments,opening_balance:opening,
+        created_by:me.id,updated_at:new Date().toISOString()
+      };
+      if(r.id){
+        await api('/rest/v1/supervisor_custody_expenses?id=eq.'+encodeURIComponent(r.id),{
+          method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)
+        });
+      }else{
+        await api('/rest/v1/supervisor_custody_expenses',{
+          method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)
+        });
+      }
+    }
+    if(msg)msg.innerHTML='<div class="msg ok">✓ تم حفظ سجل العهدة للشهر المحدد بدون تكرار البنود.</div>';
+    await renderCustody();
+  }catch(e){
+    if(msg)msg.innerHTML='<div class="msg err">تعذر حفظ سجل العهدة: '+esc(e.message)+'</div>';
+  }
 }
 function toggleAllCustody(checked){document.querySelectorAll('[data-custody-check]').forEach(x=>x.checked=checked)}
 async function deleteSelectedCustody(){if(me?.role!=='SUPERVISOR')return;const ids=[...document.querySelectorAll('[data-custody-check]:checked')].map(x=>x.closest('tr')?.dataset.custodyId).filter(Boolean);if(!ids.length){alert('حدد بندًا واحدًا على الأقل.');return}if(!confirm('سيتم حذف '+ids.length+' بند من سجل هذا الشهر. هل تريد المتابعة؟'))return;try{for(const id of ids)await api('/rest/v1/supervisor_custody_expenses?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{Prefer:'return=minimal'}});await renderCustody()}catch(e){alert('تعذر حذف البنود المحددة: '+e.message)}}
