@@ -1496,8 +1496,8 @@ function printHeader(title,dateStr){
 .qBottom{grid-template-columns:1fr!important;min-height:20mm!important;margin-top:4mm!important;padding:3mm!important;align-items:center!important}
 .qRep{text-align:center!important;line-height:1.8!important}
 .qStampBottom{display:flex!important;justify-content:center!important;align-items:center!important;text-align:center!important;margin:4mm auto 2mm!important;width:100%!important;min-height:42mm!important}
-.qStampBottom img{width:58mm!important;height:58mm!important;max-width:58mm!important;max-height:58mm!important;object-fit:contain!important;display:block!important;filter:drop-shadow(0 2px 4px rgba(8,40,74,.20))!important}
-@media print{.qStampBottom{page-break-inside:avoid;margin-top:4mm!important;margin-bottom:2mm!important}.qStampBottom img{width:58mm!important;height:58mm!important}}
+.qStampBottom img{width:30mm!important;height:30mm!important;max-width:30mm!important;max-height:30mm!important;object-fit:contain!important;display:block!important;filter:drop-shadow(0 2px 4px rgba(8,40,74,.20))!important}
+@media print{.qStampBottom{page-break-inside:avoid;margin-top:3mm!important;margin-bottom:2mm!important}.qStampBottom img{width:30mm!important;height:30mm!important;max-width:30mm!important;max-height:30mm!important}}
 </style></head><body><div class="reportPrintSheet"><div class="head"><div class="en"><h2>KHALID ABDULLAH AL-SAFI COMPANY</h2><p>KAS TIRES — Medina Branch</p><p>Truck & Heavy Equipment Tires Specialist</p></div><img src="${document.querySelector('.brandLogo')?.src||''}" alt="KAS TIRES"><div class="ar"><h2>شركة خالد عبدالله الصافي</h2><p>فرع المدينة المنورة</p><p>إطارات الشاحنات والمعدات الثقيلة</p></div></div><h1>${esc(title)}</h1><div class="meta">التاريخ: ${esc(dateStr)} &nbsp; | &nbsp; الرقم الضريبي: 300057559400003</div>`;
 }
 async function printDailyReport(){
