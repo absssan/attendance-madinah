@@ -389,6 +389,42 @@ body{background:radial-gradient(circle at 10% 0%,#eef6ff 0,#f4f7fb 34%,#eef3f8 1
 <style>
 .welcome-overlay{position:fixed;inset:0;background:rgba(4,25,45,.58);backdrop-filter:blur(7px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px}.welcome-box{width:min(560px,100%);background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.7)}.welcome-top{padding:28px 28px 22px;background:linear-gradient(135deg,#062746,#1769b5);color:#fff;position:relative}.welcome-top:after{content:'✦';position:absolute;left:24px;top:15px;font-size:54px;opacity:.12}.welcome-name{font-size:27px;font-weight:900;margin:4px 0}.welcome-sub{opacity:.9;font-size:14px}.welcome-body{padding:24px 28px}.welcome-title{font-size:21px;font-weight:900;color:#08284a;margin-bottom:8px}.welcome-text{line-height:1.95;color:#334155;font-size:15px}.welcome-score{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.welcome-stat{background:#f6f9fc;border:1px solid #e2e8f0;border-radius:15px;padding:12px;text-align:center}.welcome-stat b{display:block;font-size:20px;color:#1769b5}.welcome-stat span{font-size:11px;color:#64748b}.welcome-quote{background:#fff8db;border-right:4px solid #f2c300;padding:13px 15px;border-radius:12px;line-height:1.8;color:#6b5500;margin-bottom:18px}.welcome-close{width:100%;height:48px;border:0;border-radius:13px;background:linear-gradient(135deg,#0d477d,#1769b5);color:#fff;font-weight:800;font-size:15px;cursor:pointer}.welcome-close:hover{filter:brightness(1.05)}@media(max-width:600px){.welcome-score{grid-template-columns:1fr 1fr}.welcome-top,.welcome-body{padding:22px}.welcome-name{font-size:23px}}
 </style>
+
+<style>
+/* ضبط حجم ختم التسعيرة ليطابق النموذج المرفق */
+.qStampBottom{
+  display:flex!important;
+  justify-content:center!important;
+  align-items:center!important;
+  text-align:center!important;
+  margin:3mm auto 2mm!important;
+  width:100%!important;
+  min-height:35mm!important;
+}
+.qStampBottom img{
+  width:65mm!important;
+  height:auto!important;
+  max-width:65mm!important;
+  max-height:none!important;
+  object-fit:contain!important;
+  display:block!important;
+  filter:none!important;
+}
+@media print{
+  .qStampBottom{
+    page-break-inside:avoid;
+    margin-top:3mm!important;
+    margin-bottom:2mm!important;
+  }
+  .qStampBottom img{
+    width:65mm!important;
+    height:auto!important;
+    max-width:65mm!important;
+    max-height:none!important;
+  }
+}
+</style>
+
 </head>
 <body>
 <header class="top"><div class="topin"><div class="brand">
