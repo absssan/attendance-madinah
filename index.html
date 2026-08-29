@@ -525,6 +525,52 @@ body{background:radial-gradient(circle at 10% 0%,#eef6ff 0,#f4f7fb 34%,#eef3f8 1
 }
 </style>
 
+<style>
+/* V28 — polished bank accounts block above stamp */
+.qBankAccounts{
+  margin:2mm auto 1.5mm!important;
+  padding:1.8mm 3mm!important;
+  border:1.2px solid #b8c5d2!important;
+  border-radius:2.5mm!important;
+  background:linear-gradient(180deg,#fbfdff,#f5f8fb)!important;
+  box-shadow:0 1px 4px rgba(8,40,74,.06)!important;
+  text-align:center!important;
+  page-break-inside:avoid!important;
+}
+.qBankTitle{
+  font-size:8.5px!important;
+  font-weight:900!important;
+  color:#08284a!important;
+  margin:0 0 1.2mm!important;
+  padding-bottom:.8mm!important;
+  border-bottom:1px solid #dbe3eb!important;
+}
+.qBankImage{
+  width:118mm!important;
+  max-width:100%!important;
+  height:auto!important;
+  margin:0 auto!important;
+  display:block!important;
+  object-fit:contain!important;
+}
+.qStampBottom{
+  margin:1.5mm auto 1mm!important;
+  min-height:28mm!important;
+}
+.qStampBottom img{
+  width:56mm!important;
+  max-width:56mm!important;
+  max-height:28mm!important;
+  height:auto!important;
+  object-fit:contain!important;
+}
+@media print{
+  .qBankAccounts{margin:2mm auto 1.5mm!important;padding:1.8mm 3mm!important}
+  .qBankImage{width:118mm!important;max-width:100%!important}
+  .qStampBottom{margin:1.5mm auto 1mm!important;min-height:28mm!important}
+  .qStampBottom img{width:56mm!important;max-width:56mm!important;max-height:28mm!important}
+}
+</style>
 </head>
 <body>
 <header class="top"><div class="topin"><div class="brand">
