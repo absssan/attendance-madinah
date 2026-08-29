@@ -804,6 +804,60 @@ body{background:radial-gradient(circle at 10% 0%,#eef6ff 0,#f4f7fb 34%,#eef3f8 1
 @media print{.modernLeaveEditor{display:none!important}.leaveImageStyle{width:auto!important;padding:0!important}.lvSection,.lvApprovalGrid,.lvEmployeeSign,.leaveOfficialHeader,.leaveDocTitle{page-break-inside:avoid}.lvSectionHead{print-color-adjust:exact;-webkit-print-color-adjust:exact}.leaveImageStyle .leavePrintFooter{print-color-adjust:exact;-webkit-print-color-adjust:exact}.lvField{padding:1.7mm 2.1mm}.lvSection{margin-bottom:3mm}}
 @media(max-width:700px){.modernLeaveEditorHead{margin:-14px -14px 14px}.modernLeaveEditorHead h2{font-size:22px}.lvApprovalGrid{grid-template-columns:1fr}.lvGrid.four,.lvGrid.three{grid-template-columns:1fr 1fr}}
 </style>
+
+<style>
+/* A3 — compact one-page A4 leave form */
+@page{size:A4 portrait;margin:6mm}
+.leavePrintSheet{
+  width:198mm!important;max-width:198mm!important;margin:0 auto!important;
+  padding:0!important;font-family:Tahoma,Arial,sans-serif!important;font-size:8px!important;
+  color:#10233a!important;overflow:hidden!important;
+}
+.leaveOfficialHeader{margin:0 0 2.5mm!important;padding:0 0 2mm!important}
+.leaveOfficialHeaderInner{grid-template-columns:1fr 34mm 1fr!important;min-height:25mm!important;column-gap:4mm!important;direction:ltr!important}
+.leaveOfficialHeader .headLeft{direction:ltr!important;text-align:left!important}
+.leaveOfficialHeader .headRight{direction:rtl!important;text-align:right!important}
+.leaveOfficialHeader .headEn{font-size:11px!important}.leaveOfficialHeader .headCoEn{font-size:8px!important}
+.leaveOfficialHeader .headAr{font-size:13px!important}.leaveOfficialHeader .headCoAr{font-size:9px!important}
+.leaveOfficialHeader .headMeta{font-size:7px!important;margin-top:.6mm!important}
+.leaveOfficialHeader .logoBox img{width:30mm!important;max-height:23mm!important}
+.modernLeaveTitle{padding:2.5mm 0!important;margin:0 0 2.5mm!important}
+.modernLeaveTitle>div{font-size:16px!important}.modernLeaveTitle .en{font-size:9px!important}
+.lvSection{margin-bottom:2.2mm!important;border-radius:2.5mm!important}
+.lvSectionHead{font-size:8.5px!important;padding:1.7mm 3mm!important}
+.lvSectionHead span{font-size:6.2px!important}
+.lvGrid.four{grid-template-columns:1.25fr 1fr 1fr 1fr!important}
+.lvGrid.three{grid-template-columns:1.45fr 1fr 1fr!important}
+.lvField{min-height:10mm!important;padding:1.3mm 2mm!important}
+.lvLabel{font-size:6.7px!important;margin-bottom:.8mm!important}
+.lvValue{font-size:8px!important;min-height:4mm!important}
+.lvChecks{gap:1.5mm!important;font-size:6.8px!important}
+.lvReason .lvField{min-height:15mm!important}.lvReason .lvValue{min-height:9mm!important}
+.lvEmployeeSignTop{display:grid;grid-template-columns:1.6fr 1fr;gap:3mm;padding:2mm 2.2mm;border-top:1px solid #c8d2dc}
+.lvSigBox{height:11mm;border-bottom:1px solid #9ca9b5;display:flex;align-items:center;justify-content:flex-start;padding:1mm}
+.lvSigImg{max-height:10mm;max-width:48mm;object-fit:contain;display:block}
+.lvManagerRow{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:0}
+.lvManagerRow .lvField{min-height:10mm}
+.leavePrintSheet .lvApprovalGrid{display:none!important}
+.leavePrintSheet .lvEmployeeSign{display:none!important}
+.leavePrintFooter{margin-top:2mm!important;padding:1.5mm!important;font-size:6.7px!important}
+@media print{
+  .leavePrintSheet{width:198mm!important;max-height:285mm!important}
+  .leaveOfficialHeader,.leaveDocTitle,.lvSection,.lvEmployeeSignTop,.lvManagerRow{page-break-inside:avoid!important}
+  .lvSection{margin-bottom:2mm!important}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}
+
+/* Leave editor controls */
+.leaveSignatureUpload input[type=file]{padding:8px!important;font-size:12px!important}
+.leaveSignaturePreview{margin-top:6px;min-height:40px;border:1px dashed #c8d2dc;border-radius:9px;background:#f8fafc;padding:6px;text-align:center;color:#718096;font-size:11px}
+.leaveSignaturePreview img{max-width:180px;max-height:55px;object-fit:contain}
+.leaveManagerApprovalEditor,.leaveAccountingEditor{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px;border:1px solid #dbe4ec;border-radius:12px;background:#fbfdff}
+.leaveDecisionButtons,.salaryAdvanceGrid{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.leaveDecision,.salaryAdvanceBtn{padding:10px 12px;border:1px solid #d7e0e8;border-radius:10px;background:#fff;color:#23415e;font-weight:800;cursor:pointer}
+.leaveDecision.active,.salaryAdvanceBtn.active{background:#eaf7ef;border-color:#159447;color:#166534}
+@media(max-width:700px){.leaveManagerApprovalEditor,.leaveAccountingEditor{grid-template-columns:1fr}.leaveEmployeeSignTop{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
 <header class="top"><div class="topin"><div class="brand">
@@ -2037,6 +2091,13 @@ async function renderLeaveCenter(){
     <div class="field"><label>الإدارة / القسم</label><input id="leaveDepartment" placeholder="الإدارة أو القسم"></div>
     <div class="field"><label>الفرع</label><input id="leaveBranch" value="فرع المدينة المنورة"></div>
     <div class="field"><label>تاريخ تقديم الطلب</label><input id="leaveRequestDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="field leaveSignatureUpload"><label>توقيع الموظف</label><input id="leaveEmployeeSignature" type="file" accept="image/png,image/jpeg,image/webp" onchange="previewLeaveSignature(this)"><div id="leaveSignaturePreview" class="leaveSignaturePreview">يمكن رفع صورة التوقيع</div></div>
+   </div>
+   <div class="modernLeaveSectionTitle">اعتماد المدير المباشر</div>
+   <div class="leaveManagerApprovalEditor">
+    <div class="field"><label>اسم المدير المباشر</label><input id="leaveManager" value="مشرف الفرع"></div>
+    <div class="leaveDecisionButtons"><button type="button" class="leaveDecision active" data-decision="APPROVED" onclick="selectLeaveDecision(this)">☑ موافق</button><button type="button" class="leaveDecision" data-decision="REJECTED" onclick="selectLeaveDecision(this)">☐ غير موافق</button></div><input type="hidden" id="leaveManagerDecision" value="APPROVED">
+    <div class="field"><label>ملاحظة المدير المباشر</label><input id="leaveManagerNote" placeholder="اختياري"></div>
    </div>
    <div class="modernLeaveSectionTitle">تفاصيل الإجازة</div>
    <div class="leaveFormGrid">
@@ -2051,13 +2112,25 @@ async function renderLeaveCenter(){
       <button class="leaveTypeBtn" data-leave="UNPAID" onclick="selectLeaveType(this)">☐ بدون راتب</button>
       <button class="leaveTypeBtn" data-leave="OTHER" onclick="selectLeaveType(this)">☐ أخرى</button>
     </div><input type="hidden" id="leaveType" value="ANNUAL"></div>
+    <div class="field full"><label>طريقة صرف الراتب</label><div class="salaryAdvanceGrid"><button type="button" class="salaryAdvanceBtn active" data-pay="ADVANCE" onclick="selectSalaryPayment(this)">☑ طلب الراتب مقدماً في بداية الإجازة</button><button type="button" class="salaryAdvanceBtn" data-pay="MONTH_END" onclick="selectSalaryPayment(this)">☐ إبقاء الراتب مع راتب نهاية الشهر</button></div><input type="hidden" id="leaveSalaryPayment" value="ADVANCE"></div>
     <div class="field full"><label>العنوان أثناء الإجازة</label><input id="leaveAddress" placeholder="العنوان أثناء الإجازة"></div>
-    <div class="field full"><label>سبب الإجازة / الملاحظات</label><textarea id="leaveReason" rows="4" placeholder="اكتب سبب الإجازة أو أي ملاحظات إضافية"></textarea></div>
+    <div class="field full"><label>سبب الإجازة / الملاحظات</label><textarea id="leaveReason" rows="3" placeholder="اكتب سبب الإجازة أو أي ملاحظات إضافية"></textarea></div>
    </div>
-   <div class="modernApprovalHint">سيظهر في النموذج المطبوع قسم <b>اعتماد المدير المباشر</b> وقسم <b>اعتماد الموارد البشرية</b> مع خانات الموافقة والتوقيع والتاريخ.</div>
+   <div class="modernLeaveSectionTitle">المحاسبة والموارد البشرية</div>
+   <div class="leaveAccountingEditor">
+    <div class="field"><label>ملاحظات المحاسبة</label><input id="leaveAccountingNote" placeholder="اختياري"></div>
+    <div class="field"><label>اعتماد الموارد البشرية</label><select id="leaveHRDecision"><option value="PENDING">بانتظار الاعتماد</option><option value="APPROVED">موافق</option><option value="REJECTED">غير موافق</option></select></div>
+   </div>
+   <div class="modernApprovalHint">تسلسل الاعتماد: بيانات الموظف وتوقيعه ← المدير المباشر ← تفاصيل الإجازة ← المحاسبة والموارد البشرية.</div>
    <div class="actionRow no-print" style="margin-top:14px"><button class="btn small" onclick="saveLeaveRequest()">💾 حفظ وإرسال</button><button class="btn secondary small" onclick="printLeaveBlank()">🖨️ طباعة نموذج فارغ</button><button class="btn secondary small" onclick="printLeaveDraft()">🖨️ طباعة الطلب</button></div><div id="leaveMsg"></div>
   </div>
-  ${me?.role==='SUPERVISOR'?`<div class="card"><div class="sectionhead"><h3>🧾 الطلبات الواردة</h3></div>${renderLeaveRows(rows,true)}</div>`:''}
+  ${me?.role==='SUPERVISOR'?`<div class="field"><label>اسم الموظف</label><select id="leaveEmployee" onchange="loadLeaveEmployeeDefaults()">${opts}</select></div>`:`<div class="field"><label>اسم الموظف</label><input value="${esc(me.name)}" readonly></div>`}
+    <div class="field"><label>الوظيفة</label><input id="leavePosition" value="${esc(roleName(selectedEmp.role||me?.role))}"></div>
+    <div class="field"><label>الإدارة / القسم</label><input id="leaveDepartment" placeholder="الإدارة أو القسم"></div>
+    <div class="field"><label>الفرع</label><input id="leaveBranch" value="فرع المدينة المنورة"></div>
+    <div class="field"><label>تاريخ تقديم الطلب</label><input id="leaveRequestDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+   </div>
+     ${me?.role==='SUPERVISOR'?`<div class="card"><div class="sectionhead"><h3>🧾 الطلبات الواردة</h3></div>${renderLeaveRows(rows,true)}</div>`:''}
   <div class="card"><div class="sectionhead"><h3>📚 سجل طلباتي</h3><button class="btn secondary small no-print" onclick="renderLeaveCenter()">↻ تحديث</button></div>${renderLeaveRows(me?.role==='SUPERVISOR'?rows.filter(x=>x.employee_id===me.id):rows,false)}</div>`;
   await loadLeaveEmployeeDefaults();
  }catch(e){$('content').innerHTML='<div class="card"><div class="msg err">تعذر تحميل نموذج الإجازة: '+esc(e.message)+'</div></div>'}}
@@ -2072,13 +2145,15 @@ async function loadLeaveEmployeeDefaults(){
  }catch(e){/* defaults are optional */}
 }
 function selectLeaveType(btn){document.querySelectorAll('.leaveTypeBtn').forEach(x=>{x.classList.remove('active');x.textContent=x.textContent.replace(/^☑\s*/,'☐ ')});btn.classList.add('active');btn.textContent=btn.textContent.replace(/^☐\s*/,'☑ ');$('leaveType').value=btn.dataset.leave}
+function selectLeaveDecision(btn){document.querySelectorAll('.leaveDecision').forEach(x=>{x.classList.remove('active');x.textContent='☐ '+x.textContent.replace(/^☑\s*/,'').replace(/^☐\s*/,'')});btn.classList.add('active');btn.textContent='☑ '+btn.textContent.replace(/^☑\s*/,'').replace(/^☐\s*/,'');if($('leaveManagerDecision'))$('leaveManagerDecision').value=btn.dataset.decision}
+function selectSalaryPayment(btn){document.querySelectorAll('.salaryAdvanceBtn').forEach(x=>{x.classList.remove('active');x.textContent='☐ '+x.textContent.replace(/^☑\s*/,'').replace(/^☐\s*/,'')});btn.classList.add('active');btn.textContent='☑ '+btn.textContent.replace(/^☑\s*/,'').replace(/^☐\s*/,'');if($('leaveSalaryPayment'))$('leaveSalaryPayment').value=btn.dataset.pay}
+function previewLeaveSignature(input){const f=input?.files?.[0];if(!f){window._leaveSignatureData='';if($('leaveSignaturePreview'))$('leaveSignaturePreview').textContent='يمكن رفع صورة التوقيع';return}const r=new FileReader();r.onload=()=>{window._leaveSignatureData=r.result;if($('leaveSignaturePreview'))$('leaveSignaturePreview').innerHTML='<img src="'+r.result+'" alt="التوقيع">'};r.readAsDataURL(f)}
 function updateLeaveDays(){const n=leaveDays($('leaveStart')?.value,$('leaveEnd')?.value);if($('leaveDays'))$('leaveDays').value=n||''}
-function leaveExtraData(){return {branch:$('leaveBranch')?.value||'فرع المدينة المنورة',position:$('leavePosition')?.value||'',department:$('leaveDepartment')?.value||'',request_date:$('leaveRequestDate')?.value||'',last_vac_date:$('leaveLastDate')?.value||'',address:$('leaveAddress')?.value||'',manager:$('leaveManager')?.value||'مشرف الفرع',reason:$('leaveReason')?.value||''}}
+function leaveExtraData(){return {branch:$('leaveBranch')?.value||'فرع المدينة المنورة',position:$('leavePosition')?.value||'',department:$('leaveDepartment')?.value||'',request_date:$('leaveRequestDate')?.value||'',last_vac_date:$('leaveLastDate')?.value||'',address:$('leaveAddress')?.value||'',manager:$('leaveManager')?.value||'مشرف الفرع',manager_decision:$('leaveManagerDecision')?.value||'APPROVED',manager_note:$('leaveManagerNote')?.value||'',salary_payment:$('leaveSalaryPayment')?.value||'ADVANCE',accounting_note:$('leaveAccountingNote')?.value||'',hr_decision:$('leaveHRDecision')?.value||'PENDING',reason:$('leaveReason')?.value||'',employee_signature:window._leaveSignatureData||''}}
 function renderLeaveRows(rows,supervisor){return rows?.length?rows.map(r=>{const emp=r.employees?.name||((window._employees||[]).find(e=>e.id===r.employee_id)?.name)||'—';return `<div class="leaveRequestCard"><div class="leaveRequestHead"><div><b>${esc(emp)}</b><div class="muted">${leaveTypeLabel(r.leave_type)} — ${esc(r.start_date)} إلى ${esc(r.end_date)}</div></div><span class="pill ${leaveStatusClass[r.status]||'p-blue'}">${leaveStatusLabel(r.status)}</span></div><div class="leaveRequestBody"><div class="leaveMeta"><div class="box"><small>المدة</small><b>${r.days_count} يوم</b></div><div class="box"><small>تاريخ الطلب</small><b>${dateTime(r.created_at)}</b></div><div class="box"><small>العنوان</small><b>${esc((()=>{try{return JSON.parse(r.employee_note||'{}').address||'—'}catch(_){return r.employee_note||'—'}})())}</b></div><div class="box"><small>ملاحظة المشرف</small><b>${esc(r.supervisor_note||'—')}</b></div></div><div class="actionRow no-print" style="margin-top:10px"><button class="btn secondary small" onclick="printSavedLeave('${r.id}')">🖨️ طباعة النموذج الرسمي</button>${supervisor&&r.status==='PENDING'?`<button class="btn small" onclick="decideLeave('${r.id}','APPROVED')">✓ اعتماد</button><button class="btn danger small" onclick="decideLeave('${r.id}','REJECTED')">✕ رفض</button>`:''}${!supervisor&&r.status==='PENDING'?`<button class="btn danger small" onclick="decideLeave('${r.id}','CANCELLED')">إلغاء</button>`:''}</div></div></div>`}).join(''):'<div class="muted">لا توجد طلبات إجازة.</div>'}
 async function saveLeaveRequest(){try{const employeeId=me?.role==='SUPERVISOR'?$('leaveEmployee')?.value:me.id,start=$('leaveStart')?.value,end=$('leaveEnd')?.value,days=leaveDays(start,end),type=$('leaveType')?.value||'ANNUAL',x=leaveExtraData();if(!employeeId||!start||!end||days<1)throw Error('اختر الموظف والتاريخين وتأكد من صحة المدة.');await api('/rest/v1/leave_requests',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:employeeId,leave_type:type,start_date:start,end_date:end,days_count:days,reason:x.reason,employee_note:JSON.stringify(x),status:'PENDING',updated_at:new Date().toISOString()})});await renderLeaveCenter()}catch(e){$('leaveMsg').innerHTML='<div class="msg err">تعذر حفظ الطلب: '+esc(e.message)+'</div>'}}
-async function decideLeave(id,status){const note=prompt(status==='REJECTED'?'سبب الرفض (اختياري):':'ملاحظة المشرف (اختياري):','')??'';try{await api('/rest/v1/leave_requests?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status,supervisor_note:note,approved_by:status==='APPROVED'?me.id:null,approved_at:status==='APPROVED'?new Date().toISOString():null,updated_at:new Date().toISOString()})});await renderLeaveCenter()}catch(e){alert('تعذر تحديث الطلب: '+e.message)}}
 function leaveOfficialHeaderHtml(){const logo=document.querySelector('.brandLogo')?.src||'';return `<div class="leaveOfficialHeader modernLeaveHeader"><div class="leaveOfficialHeaderInner"><div class="headLeft"><div class="headEn">KHALID ABDULLAH AL-SAFI CO.</div><div class="headCoEn">KAS TIRES — MEDINA BRANCH</div><div class="headMeta">Unified No.: 7000196290</div><div class="headMeta">VAT No.: 300057559400003</div></div><div class="logoBox"><img src="${logo}" alt="KAS TIRES"></div><div class="headRight"><div class="headAr">شركة خالد عبدالله الصافي</div><div class="headCoAr">فرع المدينة المنورة</div><div class="headMeta">الرقم الموحد: ٧٠٠٠١٩٦٢٩٠</div><div class="headMeta">الرقم الضريبي: ٣٠٠٠٥٧٥٥٩٤٠٠٠٠٣</div></div></div></div>`}
-function leavePrintDataFromForm(){const d=leaveExtraData();return {employee_name:me?.role==='SUPERVISOR'?($('leaveEmployee')?.selectedOptions?.[0]?.textContent||''):me?.name,branch:d.branch,position:d.position,start_date:$('leaveStart')?.value,end_date:$('leaveEnd')?.value,days_count:leaveDays($('leaveStart')?.value,$('leaveEnd')?.value),last_vac_date:d.last_vac_date,address:d.address,leave_type:$('leaveType')?.value||'ANNUAL',reason:d.reason,manager:d.manager,accountant:d.accountant,salary:d.salary,ticket:d.ticket,extra_hours:d.extra_hours,deductions:d.deductions,loans:d.loans,postpone:d.postpone,accountant_notes:d.accountant_notes,net:d.net,status:'PENDING',employee_sign:'',manager_sign:'',accountant_sign:'',personnel_sign:'',gm_approval:''}}
+function leavePrintDataFromForm(){const d=leaveExtraData();return {employee_name:me?.role==='SUPERVISOR'?($('leaveEmployee')?.selectedOptions?.[0]?.textContent||''):me?.name,branch:d.branch,position:d.position,department:d.department,request_date:$('leaveRequestDate')?.value||'',start_date:$('leaveStart')?.value,end_date:$('leaveEnd')?.value,days_count:leaveDays($('leaveStart')?.value,$('leaveEnd')?.value),last_vac_date:d.last_vac_date,address:d.address,leave_type:$('leaveType')?.value||'ANNUAL',reason:d.reason,manager:d.manager,manager_decision:d.manager_decision,manager_note:d.manager_note,salary_payment:d.salary_payment,accounting_note:d.accounting_note,hr_decision:d.hr_decision,employee_signature:d.employee_signature,status:'PENDING'}}
 function leaveTypeCheck(type,key){return type===key?'☑':'☐'}
 function money(v){const n=Number(v||0);return n?new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(n):''}
 function leavePrintHtml(d,blank){
@@ -2086,18 +2161,46 @@ function leavePrintHtml(d,blank){
  const emp=d.employee_name||'________________';const branch=d.branch||'فرع المدينة المنورة';const pos=d.position||'________________';
  const dept=d.department||'';const requestDate=d.request_date||'____ / ____ / ______';const start=d.start_date||'____ / ____ / ______';const end=d.end_date||'____ / ____ / ______';
  const days=d.days_count||'____';const last=d.last_vac_date||'____ / ____ / ______';const address=d.address||'';const reason=d.reason||'';
- const approved=d.status==='APPROVED',rejected=d.status==='REJECTED';const manager=d.manager||'________________';
+ const manager=d.manager||'________________';const managerDecision=d.manager_decision||'PENDING';const managerNote=d.manager_note||'';
+ const salaryPayment=d.salary_payment||'ADVANCE';const accountingNote=d.accounting_note||'';const hrDecision=d.hr_decision||'PENDING';const employeeSig=d.employee_signature||'';
+ const check=(v,k)=>v===k?'☑':'☐'; const decision=(v)=>v==='APPROVED'?'موافق':v==='REJECTED'?'غير موافق':'بانتظار الاعتماد';
  const field=(label,val,cls='')=>`<div class="lvField"><div class="lvLabel">${label}</div><div class="lvValue ${cls}">${val||''}</div></div>`;
- return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>طلب إجازة — ${esc(emp)}</title><style>${Array.from(document.querySelectorAll('style')).map(x=>x.textContent).join('\\n')}</style></head><body><section class="leavePrintSheet leaveImageStyle">
+ const sig=employeeSig?`<img class="lvSigImg" src="${employeeSig}" alt="توقيع الموظف">`:'';
+ return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>طلب إجازة — ${esc(emp)}</title><style>${Array.from(document.querySelectorAll('style')).map(x=>x.textContent).join('\n')}</style></head><body><section class="leavePrintSheet leaveImageStyle">
  ${leaveOfficialHeaderHtml()}
  <div class="leaveDocTitle modernLeaveTitle"><div>طلب إجازة</div><span class="en">LEAVE REQUEST FORM</span></div>
- <div class="lvSection"><div class="lvSectionHead">بيانات الموظف <span>EMPLOYEE INFORMATION</span></div><div class="lvGrid four">${field('الاسم الكامل',esc(emp))}${field('الوظيفة',esc(pos))}${field('الإدارة / القسم',esc(dept))}${field('الفرع',esc(branch))}${field('تاريخ تقديم الطلب',esc(requestDate))}</div></div>
- <div class="lvSection"><div class="lvSectionHead">تفاصيل الإجازة <span>LEAVE DETAILS</span></div><div class="lvGrid three">${field('نوع الإجازة',`<span class="lvChecks"><span>${leaveTypeCheck(type,'ANNUAL')} سنوية</span><span>${leaveTypeCheck(type,'SICK')} مرضية</span><span>${leaveTypeCheck(type,'EMERGENCY')} طارئة</span><span>${leaveTypeCheck(type,'UNPAID')} بدون راتب</span><span>${leaveTypeCheck(type,'OTHER')} أخرى</span></span>`, 'lvType')}${field('تاريخ بدء الإجازة',esc(start))}${field('تاريخ نهاية الإجازة',esc(end))}${field('عدد أيام الإجازة',esc(String(days)))}${field('تاريخ العودة لآخر إجازة',esc(last))}</div><div class="lvWide">${field('العنوان أثناء الإجازة',esc(address))}</div><div class="lvReason">${field('سبب الإجازة / الملاحظات',esc(reason))}</div></div>
- <div class="lvSection"><div class="lvSectionHead">الاعتمادات <span>APPROVALS</span></div><div class="lvApprovalGrid">
-  <div class="lvApproval direct"><div class="lvApprovalTitle">اعتماد المدير المباشر <span>DIRECT MANAGER APPROVAL</span></div><div class="lvApprovalBody"><div><b>اسم المدير المباشر</b><div class="line">${esc(manager)}</div></div><div><b>القرار</b><div class="decision">${approved?'☑':'☐'} موافق &nbsp;&nbsp; ${rejected?'☑':'☐'} غير موافق</div></div><div><b>التوقيع</b><div class="line">&nbsp;</div></div><div><b>التاريخ</b><div class="line">&nbsp; / &nbsp; / &nbsp;</div></div></div></div>
-  <div class="lvApproval hr"><div class="lvApprovalTitle">اعتماد الموارد البشرية <span>HUMAN RESOURCES APPROVAL</span></div><div class="lvApprovalBody"><div><b>اسم مسؤول الموارد البشرية</b><div class="line">&nbsp;</div></div><div><b>القرار</b><div class="decision">☐ موافق &nbsp;&nbsp; ☐ غير موافق</div></div><div><b>التوقيع</b><div class="line">&nbsp;</div></div><div><b>التاريخ</b><div class="line">&nbsp; / &nbsp; / &nbsp;</div></div></div></div>
- </div></div>
- <div class="lvEmployeeSign"><span>توقيع الموظف</span><div class="line">&nbsp;</div><span>التاريخ</span><div class="line">&nbsp; / &nbsp; / &nbsp;</div></div>
+
+ <div class="lvSection"><div class="lvSectionHead">بيانات الموظف <span>EMPLOYEE INFORMATION</span></div>
+  <div class="lvGrid four">
+   ${field('الاسم الكامل',esc(emp))}${field('الوظيفة',esc(pos))}${field('الإدارة / القسم',esc(dept))}${field('الفرع',esc(branch))}${field('تاريخ تقديم الطلب',esc(requestDate))}
+  </div>
+  <div class="lvEmployeeSignTop"><div><div class="lvLabel">توقيع الموظف</div><div class="lvSigBox">${sig||'<span>____________________________</span>'}</div></div><div><div class="lvLabel">تاريخ التوقيع</div><div class="line">____ / ____ / ______</div></div></div>
+ </div>
+
+ <div class="lvSection"><div class="lvSectionHead">اعتماد المدير المباشر <span>DIRECT MANAGER APPROVAL</span></div>
+  <div class="lvManagerRow">
+   ${field('اسم المدير المباشر',esc(manager))}${field('القرار',`${check(managerDecision,'APPROVED')} موافق &nbsp;&nbsp; ${check(managerDecision,'REJECTED')} غير موافق`)}${field('التوقيع','')}${field('التاريخ','____ / ____ / ______')}
+  </div>
+  ${managerNote?`<div class="lvWide">${field('ملاحظة المدير المباشر',esc(managerNote))}</div>`:''}
+ </div>
+
+ <div class="lvSection"><div class="lvSectionHead">تفاصيل الإجازة <span>LEAVE DETAILS</span></div>
+  <div class="lvGrid three">
+   ${field('نوع الإجازة',`<span class="lvChecks"><span>${check(type,'ANNUAL')} سنوية</span><span>${check(type,'SICK')} مرضية</span><span>${check(type,'EMERGENCY')} طارئة</span><span>${check(type,'UNPAID')} بدون راتب</span><span>${check(type,'OTHER')} أخرى</span></span>`,'lvType')}
+   ${field('تاريخ بدء الإجازة',esc(start))}${field('تاريخ نهاية الإجازة',esc(end))}${field('عدد أيام الإجازة',esc(String(days)))}${field('تاريخ العودة لآخر إجازة',esc(last))}
+  </div>
+  <div class="lvWide">${field('العنوان أثناء الإجازة',esc(address))}</div>
+  <div class="lvReason">${field('سبب الإجازة / الملاحظات',esc(reason))}</div>
+ </div>
+
+ <div class="lvSection"><div class="lvSectionHead">المحاسبة والموارد البشرية <span>ACCOUNTING &amp; HUMAN RESOURCES</span></div>
+  <div class="lvGrid three">
+   ${field('طريقة صرف الراتب',`${check(salaryPayment,'ADVANCE')} مقدماً في بداية الإجازة &nbsp;&nbsp; ${check(salaryPayment,'MONTH_END')} مع راتب نهاية الشهر`)}
+   ${field('ملاحظات المحاسبة',esc(accountingNote))}
+   ${field('اعتماد الموارد البشرية',`${check(hrDecision,'APPROVED')} موافق &nbsp;&nbsp; ${check(hrDecision,'REJECTED')} غير موافق`)}
+  </div>
+ </div>
+
  <div class="leavePrintFooter">ملاحظة: لا يعتبر طلب الإجازة معتمدًا إلا بعد استكمال اعتماد المدير المباشر والموارد البشرية.</div>
  </section></body></html>`}
 function printLeaveHtml(html){const w=openPrintWindow();if(!w)return;w.document.open();w.document.write(html);w.document.close();setTimeout(()=>{w.focus();w.print()},300)}
