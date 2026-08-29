@@ -951,11 +951,11 @@ function printPricing(){
     let size=$('psize_'+i)?.value.trim()||'',brand=$('pbrand_'+i)?.value.trim()||'',pattern=$('ppattern_'+i)?.value.trim()||'',price=Number($('pprice_'+i)?.value||0),qty=Number($('pqty_'+i)?.value||0);
     if(!size&&!brand&&!pattern&&!price)continue;
     let total=price*qty,vat=total*.15,grand=total+vat;net+=total;
-    rows.push(`<tr><td>${rows.length+1}</td><td>${esc(size)}</td><td>${esc(brand)}</td><td>${esc(pattern)}</td><td>${price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td>${qty}</td><td>${vat.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td>${grand.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr>`);
+    rows.push(`<tr><td>${rows.length+1}</td><td>${esc(size)}</td><td>${esc(brand)}</td><td>${esc(pattern)}</td><td>${price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td>${qty}</td><td>${Math.round(vat).toLocaleString('en-US')} ر.س</td><td>${Math.round(grand).toLocaleString('en-US')} ر.س</td></tr>`);
   }
   if(!rows.length){alert('أدخل صنفًا واحدًا على الأقل قبل الطباعة.');return}
   let phone=$('repPhone')?.value.trim()||'';localStorage.setItem('kas_rep_phone',phone);
-  let vat=net*.15,grand=net+vat,words=numberToArabicWords(Math.round(grand*100)/100);
+  let vat=net*.15,grand=net+vat,grandRounded=Math.round(grand),words=numberToArabicWords(grandRounded);
   const logo=document.querySelector('.brandLogo')?.src||'',tax=window.KAS_TAX_NUMBER||'300057559400003';
   const date=new Date().toLocaleDateString('ar-SA');
   const customerName=($('quoteCustomerName')?.value||'').trim();
@@ -973,9 +973,9 @@ function printPricing(){
     <div class="qTitle"><div>تسعيرة</div><small>PRICE QUOTATION</small></div>
     <div class="qCustomerPrint"><div><span>اسم العميل</span><b>${esc(customerName||'—')}</b></div><div><span>جوال العميل</span><b>${esc(customerPhone||'—')}</b></div><div><span>الرقم الضريبي</span><b>${esc(customerTax||'—')}</b></div></div><div class="qMeta"><span>التاريخ: <b>${date}</b></span><span>صالحة لمدة: <b>7 أيام</b></span></div>
     <table class="qTable"><thead><tr><th>م<br><small>No.</small></th><th>المقاس<br><small>Size</small></th><th>الماركة<br><small>Brand</small></th><th>النقشة<br><small>Pattern</small></th><th>السعر قبل الضريبة<br><small>Unit Price</small></th><th>الكمية<br><small>Qty</small></th><th>VAT 15%<br><small>ضريبة</small></th><th>الإجمالي بعد الضريبة<br><small>Total incl. VAT</small></th></tr></thead><tbody>${rows.join('')}</tbody></table>
-    <div class="qLower"><div class="qTotals"><div><span>الإجمالي قبل الضريبة</span><b>${net.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} ر.س</b></div><div><span>ضريبة القيمة المضافة (15%)</span><b>${vat.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} ر.س</b></div><div class="grand"><span>الإجمالي الكلي شامل الضريبة</span><b>${grand.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} ر.س</b></div><div><span>المبلغ كتابة</span><b>${esc(words)}</b></div></div>
-      <div class="qNotice"><strong>⚠️ تنبيه مهم</strong><p>الأسعار المعروضة قابلة للتغيير والتعديل حسب التوفر وتغير السوق والاتفاق النهائي.</p><strong>هذه تسعيرة وليست فاتورة</strong><p>لا تعتبر هذه الورقة فاتورة أو التزامًا بالبيع، ويتم اعتماد السعر النهائي عند إصدار الفاتورة.</p></div></div>
     <div class="qBottom"><div class="qRep"><div><b>معدّ التسعيرة (المندوب):</b> ${esc(preparedBy)}</div><div><b>رقم جوال المندوب للتواصل:</b> ${esc(preparedPhone||'غير محدد')}</div></div><div class="qStamp"><img src="${stamp_uri}" alt="ختم الفرع"></div></div>
+    <div class="qLower"><div class="qTotals"><div><span>الإجمالي قبل الضريبة</span><b>${Math.round(net).toLocaleString('en-US')} ر.س</b></div><div><span>ضريبة القيمة المضافة (15%)</span><b>${Math.round(vat).toLocaleString('en-US')} ر.س</b></div><div class="grand"><span>الإجمالي الكلي شامل الضريبة</span><b>${grandRounded.toLocaleString('en-US')} ر.س</b></div><div><span>المبلغ كتابة</span><b>${esc(words)}</b></div></div>
+      <div class="qNotice"><strong>⚠️ تنبيه مهم</strong><p>الأسعار المعروضة قابلة للتغيير والتعديل حسب التوفر وتغير السوق والاتفاق النهائي.</p><strong>هذه تسعيرة وليست فاتورة</strong><p>لا تعتبر هذه الورقة فاتورة أو التزامًا بالبيع، ويتم اعتماد السعر النهائي عند إصدار الفاتورة.</p></div></div>
     <div class="qFooter">شركة خالد عبدالله الصافي — فرع المدينة المنورة &nbsp; | &nbsp; KAS TIRES</div>
   </div>`;
   document.body.classList.add('printQuoteMode');
@@ -1268,7 +1268,7 @@ function renderPricing(){
       <div class="field"><label>الرقم الضريبي للعميل <span class="muted">(اختياري)</span></label><input id="quoteCustomerTax" inputmode="numeric" placeholder="الرقم الضريبي"></div>
     </div>
     <div class="tablewrap"><table class="pricingTable" style="min-width:1180px"><thead><tr><th>#</th><th>المقاس</th><th>الماركة</th><th>النقشة</th><th>السعر قبل الضريبة</th><th>الكمية</th><th>ضريبة 15%</th><th>الإجمالي بعد الضريبة</th></tr></thead><tbody>${Array.from({length:10},(_,i)=>pricingRow(i+1)).join('')}</tbody></table></div>
-    <div class="priceTotals" style="margin-top:12px"><div class="stat"><div class="label">الإجمالي قبل الضريبة</div><div class="num blue" id="pNet">0.00 ر.س</div></div><div class="stat"><div class="label">VAT 15%</div><div class="num orange" id="pVat">0.00 ر.س</div></div><div class="stat"><div class="label">الإجمالي الكلي شامل الضريبة</div><div class="num green" id="pGrand">0.00 ر.س</div></div><div class="amountWords"><div class="muted">المبلغ كتابة</div><div id="pWords">صفر ريال سعودي</div></div></div>
+    <div class="priceTotals" style="margin-top:12px"><div class="stat"><div class="label">الإجمالي قبل الضريبة</div><div class="num blue" id="pNet">0 ر.س</div></div><div class="stat"><div class="label">VAT 15%</div><div class="num orange" id="pVat">0 ر.س</div></div><div class="stat"><div class="label">الإجمالي الكلي شامل الضريبة</div><div class="num green" id="pGrand">0 ر.س</div></div><div class="amountWords"><div class="muted">المبلغ كتابة</div><div id="pWords">صفر ريال سعودي</div></div></div>
     <div class="repContact" style="grid-template-columns:1fr 1fr"><div class="field"><label>اسم المندوب / معدّ التسعيرة</label><input id="repName" value="${esc(me?.name||'')}" readonly></div><div class="field"><label>رقم جوال المندوب للتواصل</label><input id="repPhone" type="tel" inputmode="tel" placeholder="05xxxxxxxx" value="${esc(me?.phone||localStorage.getItem('kas_rep_phone')||'')}"></div></div>
     <div class="quoteNotice">⚠️ تنبيه مهم: هذه تسعيرة وليست فاتورة. الأسعار والكميات قابلة للتغيير والتعديل حسب التوفر والاتفاق النهائي.</div>
     <div class="actionRow no-print" style="margin-top:12px"><button class="btn" onclick="saveQuotation()">💾 حفظ التسعيرة</button><button class="btn small" onclick="printPricing()">🖨️ طباعة التسعيرة</button><button class="btn secondary small" onclick="clearPricing()">🧹 مسح</button>${me?.role==='SUPERVISOR'?'<button class="btn secondary small" onclick="renderSupervisor()">↩ العودة للوحة</button>':''}</div>
@@ -1468,6 +1468,29 @@ function printHeader(title,dateStr){
 
 /* V29 printing and UX polish */
 .printStats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0 12px}.printStats>div{border:1px solid #c8d2dc;border-radius:7px;padding:8px;text-align:center;background:#f8fafc}.printStats b{display:block;font-size:9px;color:#5d6d7e}.printStats strong{display:block;font-size:16px;color:#08284a;margin-top:3px}.inventoryPrintSheet,.issueAllPrint{font-family:Tahoma,Arial,sans-serif;direction:rtl}.inventoryPrintSheet table,.issueAllPrint table{width:100%;border-collapse:collapse;min-width:0!important}.inventoryPrintSheet th,.inventoryPrintSheet td,.issueAllPrint th,.issueAllPrint td{border:1px solid #c8d2dc;padding:5px;text-align:center;font-size:8.5px}.inventoryPrintSheet th,.issueAllPrint th{background:#08284a!important;color:#fff!important}.inventoryPrintSheet tbody tr:nth-child(even),.issueAllPrint tbody tr:nth-child(even){background:#f6f9fc}.inventoryPrintSheet footer,.issueAllPrint footer{margin-top:10px;border-top:1px solid #aaa;padding-top:6px;font-size:9px;text-align:center}@media print{.inventoryPrintSheet,.issueAllPrint{page-break-inside:auto}.inventoryPrintSheet tr,.issueAllPrint tr{page-break-inside:avoid}.inventoryPrintSheet th,.inventoryPrintSheet td,.issueAllPrint th,.issueAllPrint td{font-size:8px;padding:4px}}@media(max-width:700px){.printStats{grid-template-columns:1fr 1fr}}
+
+/* A1+ quotation refinements */
+.pricingTable{border:2px solid #b8c8d8!important;border-radius:15px!important;font-family:Tahoma,Arial,sans-serif!important;font-size:14px!important}
+.pricingTable thead th{font-size:14px!important;padding:14px 10px!important;line-height:1.35!important;white-space:nowrap}
+.pricingTable tbody td{font-size:14px!important;font-weight:700!important;padding:11px 8px!important;min-height:52px}
+.pricingTable tbody td:first-child{font-size:15px!important}
+.pricingTable input{font-family:Tahoma,Arial,sans-serif!important;font-size:15px!important;min-height:43px!important;padding:9px 10px!important}
+.pricingTable select{font-family:Tahoma,Arial,sans-serif!important;font-size:14px!important;min-height:40px!important}
+.pricingTable tbody td:last-child{font-size:16px!important;font-weight:900!important;white-space:nowrap}
+.priceTotals .stat .label{font-size:13px!important;font-weight:900!important}
+.priceTotals .stat .num{font-size:24px!important;font-weight:950!important}
+.amountWords{font-size:14px!important;line-height:1.7!important}
+.qTable{font-family:Tahoma,Arial,sans-serif!important;font-size:9.2px!important}
+.qTable th{font-size:9px!important;padding:2.4mm 1mm!important}.qTable th small{font-size:7px!important}
+.qTable td{font-size:9px!important;padding:2.1mm 1mm!important;font-weight:700!important}
+.qTable td:nth-child(8){font-size:10px!important;font-weight:950!important;white-space:nowrap!important}
+.qTotals b{font-size:10px!important;font-weight:950!important;white-space:nowrap}
+.qBottom{grid-template-columns:1fr 52mm!important;gap:8mm!important;min-height:34mm!important;margin-top:5mm!important;padding:4mm 3mm!important;border:1.5px solid #b8c8d8!important;border-radius:3mm!important;background:linear-gradient(90deg,#f8fbfd,#fff)!important}
+.qRep{font-size:10.5px!important;line-height:2!important}.qRep b{color:#08284a!important;font-weight:950!important}
+.qStamp{border-right:1px solid #cbd5df!important;padding-right:5mm!important;min-height:30mm!important}
+.qStamp img{width:48mm!important;height:34mm!important;max-height:34mm!important;object-fit:contain!important;filter:drop-shadow(0 2px 3px rgba(8,40,74,.16))!important}
+@media(max-width:700px){.pricingTable{font-size:13px!important}.pricingTable thead th{font-size:12px!important}.pricingTable tbody td{font-size:13px!important}.pricingTable input{font-size:14px!important}}
+@media print{.qBottom{border:1.2px solid #9aa8b5!important;background:#fff!important}}
 </style></head><body><div class="reportPrintSheet"><div class="head"><div class="en"><h2>KHALID ABDULLAH AL-SAFI COMPANY</h2><p>KAS TIRES — Medina Branch</p><p>Truck & Heavy Equipment Tires Specialist</p></div><img src="${document.querySelector('.brandLogo')?.src||''}" alt="KAS TIRES"><div class="ar"><h2>شركة خالد عبدالله الصافي</h2><p>فرع المدينة المنورة</p><p>إطارات الشاحنات والمعدات الثقيلة</p></div></div><h1>${esc(title)}</h1><div class="meta">التاريخ: ${esc(dateStr)} &nbsp; | &nbsp; الرقم الضريبي: 300057559400003</div>`;
 }
 async function printDailyReport(){
