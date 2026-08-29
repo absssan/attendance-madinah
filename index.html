@@ -973,9 +973,10 @@ function printPricing(){
     <div class="qTitle"><div>تسعيرة</div><small>PRICE QUOTATION</small></div>
     <div class="qCustomerPrint"><div><span>اسم العميل</span><b>${esc(customerName||'—')}</b></div><div><span>جوال العميل</span><b>${esc(customerPhone||'—')}</b></div><div><span>الرقم الضريبي</span><b>${esc(customerTax||'—')}</b></div></div><div class="qMeta"><span>التاريخ: <b>${date}</b></span><span>صالحة لمدة: <b>7 أيام</b></span></div>
     <table class="qTable"><thead><tr><th>م<br><small>No.</small></th><th>المقاس<br><small>Size</small></th><th>الماركة<br><small>Brand</small></th><th>النقشة<br><small>Pattern</small></th><th>السعر قبل الضريبة<br><small>Unit Price</small></th><th>الكمية<br><small>Qty</small></th><th>VAT 15%<br><small>ضريبة</small></th><th>الإجمالي بعد الضريبة<br><small>Total incl. VAT</small></th></tr></thead><tbody>${rows.join('')}</tbody></table>
-    <div class="qBottom"><div class="qRep"><div><b>معدّ التسعيرة (المندوب):</b> ${esc(preparedBy)}</div><div><b>رقم جوال المندوب للتواصل:</b> ${esc(preparedPhone||'غير محدد')}</div></div><div class="qStamp"><img src="${stamp_uri}" alt="ختم الفرع"></div></div>
     <div class="qLower"><div class="qTotals"><div><span>الإجمالي قبل الضريبة</span><b>${Math.round(net).toLocaleString('en-US')} ر.س</b></div><div><span>ضريبة القيمة المضافة (15%)</span><b>${Math.round(vat).toLocaleString('en-US')} ر.س</b></div><div class="grand"><span>الإجمالي الكلي شامل الضريبة</span><b>${grandRounded.toLocaleString('en-US')} ر.س</b></div><div><span>المبلغ كتابة</span><b>${esc(words)}</b></div></div>
       <div class="qNotice"><strong>⚠️ تنبيه مهم</strong><p>الأسعار المعروضة قابلة للتغيير والتعديل حسب التوفر وتغير السوق والاتفاق النهائي.</p><strong>هذه تسعيرة وليست فاتورة</strong><p>لا تعتبر هذه الورقة فاتورة أو التزامًا بالبيع، ويتم اعتماد السعر النهائي عند إصدار الفاتورة.</p></div></div>
+    <div class="qBottom"><div class="qRep"><div><b>معدّ التسعيرة (المندوب):</b> ${esc(preparedBy)}</div><div><b>رقم جوال المندوب للتواصل:</b> ${esc(preparedPhone||'غير محدد')}</div></div></div>
+    <div class="qStampBottom"><img src="${stamp_uri}" alt="ختم الفرع"></div>
     <div class="qFooter">شركة خالد عبدالله الصافي — فرع المدينة المنورة &nbsp; | &nbsp; KAS TIRES</div>
   </div>`;
   document.body.classList.add('printQuoteMode');
@@ -1491,6 +1492,12 @@ function printHeader(title,dateStr){
 .qStamp img{width:48mm!important;height:34mm!important;max-height:34mm!important;object-fit:contain!important;filter:drop-shadow(0 2px 3px rgba(8,40,74,.16))!important}
 @media(max-width:700px){.pricingTable{font-size:13px!important}.pricingTable thead th{font-size:12px!important}.pricingTable tbody td{font-size:13px!important}.pricingTable input{font-size:14px!important}}
 @media print{.qBottom{border:1.2px solid #9aa8b5!important;background:#fff!important}}
+/* Final quotation stamp placement: centered at the bottom */
+.qBottom{grid-template-columns:1fr!important;min-height:20mm!important;margin-top:4mm!important;padding:3mm!important;align-items:center!important}
+.qRep{text-align:center!important;line-height:1.8!important}
+.qStampBottom{display:flex!important;justify-content:center!important;align-items:center!important;text-align:center!important;margin:4mm auto 2mm!important;width:100%!important;min-height:42mm!important}
+.qStampBottom img{width:58mm!important;height:58mm!important;max-width:58mm!important;max-height:58mm!important;object-fit:contain!important;display:block!important;filter:drop-shadow(0 2px 4px rgba(8,40,74,.20))!important}
+@media print{.qStampBottom{page-break-inside:avoid;margin-top:4mm!important;margin-bottom:2mm!important}.qStampBottom img{width:58mm!important;height:58mm!important}}
 </style></head><body><div class="reportPrintSheet"><div class="head"><div class="en"><h2>KHALID ABDULLAH AL-SAFI COMPANY</h2><p>KAS TIRES — Medina Branch</p><p>Truck & Heavy Equipment Tires Specialist</p></div><img src="${document.querySelector('.brandLogo')?.src||''}" alt="KAS TIRES"><div class="ar"><h2>شركة خالد عبدالله الصافي</h2><p>فرع المدينة المنورة</p><p>إطارات الشاحنات والمعدات الثقيلة</p></div></div><h1>${esc(title)}</h1><div class="meta">التاريخ: ${esc(dateStr)} &nbsp; | &nbsp; الرقم الضريبي: 300057559400003</div>`;
 }
 async function printDailyReport(){
