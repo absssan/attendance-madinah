@@ -2230,7 +2230,7 @@ window.KAS_LEAVE_STATUS_CLASS = Object.freeze({PENDING:'p-orange',APPROVED:'p-gr
 
 function leaveDays(start,end){if(!start||!end)return 0;const a=new Date(start+'T00:00:00+03:00'),b=new Date(end+'T00:00:00+03:00');return Math.max(0,Math.floor((b-a)/86400000)+1)}
 function leaveTypeLabel(x){return window.KAS_LEAVE_TYPES[x]||x||'—'} function leaveStatusLabel(x){return window.KAS_LEAVE_STATUS[x]||x||'—'}
-async function renderLeaveCenter(){
+async function renderLeaveCenterBase(){
  $('content').innerHTML='<div class="card">جارٍ تحميل نموذج الإجازة الرسمي...</div>';
  try{
   const emps=me?.role==='SUPERVISOR'?await api('/rest/v1/employees?select=id,name,role,active,phone,work_days_per_week,daily_hours&active=eq.true&order=name'):[];
@@ -2523,7 +2523,7 @@ window.KAS_VERSION='A2-V33';
 </style>
 <script>
 /* A2-V34 runtime refinements */
-window.KAS_VERSION='A2-V34';
+window.KAS_VERSION='A2-V35';
 
 function supervisorEmployeeCountersData(emps,att,acts){
   const now=new Date();
@@ -2554,7 +2554,7 @@ async function loadSupervisorWorkCounters(emps,att,acts){
 }
 
 /* Keep the employee name secure for regular users, while the supervisor can choose an employee or enter a manual name for printing. */
-const _oldRenderLeaveCenter=renderLeaveCenter;
+const _oldRenderLeaveCenter=renderLeaveCenterBase;
 async function renderLeaveCenter(){
   await _oldRenderLeaveCenter();
   {
