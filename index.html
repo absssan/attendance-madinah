@@ -988,7 +988,7 @@ function attendanceConfirmation(c,now){
 async function saveIn(employeeId,c,now,note='تأكيد الحضور',attendanceMode=null){let d=today(),rows=await api('/rest/v1/attendance?select=*&employee_id='+employeeId+'&work_date='+d);let shift=shiftStartDate(),isFieldRep=me?.role==='FIELD_REP',late=isFieldRep?0:Math.max(0,Math.floor((now-shift)/60000));let payload={employee_id:employeeId,work_date:d,check_in:now.toISOString(),start_latitude:c.latitude,start_longitude:c.longitude,start_accuracy:c.accuracy,status:late?'LATE':'PRESENT',late_minutes:late,updated_at:now.toISOString()};let id=rows[0]?.id;if(id)await api('/rest/v1/attendance?id=eq.'+id,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)});else{id=(await api('/rest/v1/attendance',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)}))?.[0]?.id}let startNote=note;if(isFieldRep&&now>shift)startNote+='|ملاحظة: بدأ المندوب بعد بداية الدوام الرسمي '+SHIFT_START+'، ولا يُحتسب عليه تأخير؛ له حرية إكمال 8 ساعات خلال اليوم.';await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:employeeId,attendance_id:id||null,activity_type:'OTHER',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:(attendanceMode?('ATTENDANCE_MODE:'+attendanceMode.type+'|'+(attendanceMode.reason||'')):startNote)})});return id}
 async function selfCheckIn(){if(guardHolidayAttendance()||guardAfterShift())return;try{let c=await gps(),now=new Date();const confirmation=await attendanceConfirmation(c,now);if(!confirmation)return;await saveIn(me.id,c,now,'تأكيد الحضور',confirmation);await renderSupervisor()}catch(e){alert('تعذر تسجيل الحضور: '+e.message)}}
 async function selfCheckOut(){if(guardHolidayAttendance())return;try{let d=today(),rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+me.id+'&work_date=eq.'+d);if(!rows.length)throw Error('يجب تسجيل الحضور أولًا');await api('/rest/v1/attendance?id=eq.'+rows[0].id,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({check_out:new Date().toISOString(),updated_at:new Date().toISOString()})});await renderSupervisor()}catch(e){alert('تعذر تسجيل الانصراف: '+e.message)}}
-async function supervisorAttendanceAction(employeeId,action){if(guardHolidayAttendance())return;const labels={CHECK_IN:'تحضير الموظف',CHECK_OUT:'صرف الموظف',REOPEN:'إعادة فتح الدوام'};let reason=prompt(`سبب ${labels[action]||action} (اختياري):`,'تحكم المشرف');if(reason===null)return;try{await api('/rest/v1/rpc/supervisor_attendance_action',{method:'POST',body:JSON.stringify({p_employee_id:employeeId,p_action:action,p_reason:reason||null})});await renderSupervisor()}catch(e){alert('تعذر تنفيذ العملية: '+e.message)}}
+async function supervisorAttendanceAction(employeeId,action){if(guardHolidayAttendance())return;const labels={CHECK_IN:'تحضير الموظف',CHECK_OUT:'صرف الموظف',REOPEN:'إعادة فتح الدوام'};let reason=prompt(`سبب ${labels[action]||action} (اختياري):`,'');if(reason===null)return;try{await api('/rest/v1/rpc/supervisor_attendance_action',{method:'POST',body:JSON.stringify({p_employee_id:employeeId,p_action:action,p_reason:reason||null})});await renderSupervisor()}catch(e){alert('تعذر تنفيذ العملية: '+e.message)}}
 function effectiveCheckOut(a){return a?.check_out||(afterShift()&&a?.check_in?shiftEndDate().toISOString():null)}
 const SPECIAL_STATUS_PREFIX='ATTENDANCE_STATUS:';
 
@@ -1176,7 +1176,7 @@ function manualAttendanceModal(employeeId){if(me?.role!=='SUPERVISOR'){alert('ه
       try{
         await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({
           employee_id:employeeId,activity_type:'OTHER',
-          note:'تعديل حضور يدوي بواسطة المشرف: '+reason
+          note:'تعديل سجل الحضور: '+reason
         })});
       }catch(_){}
       modal.className='hidden';
@@ -1380,8 +1380,9 @@ async function renderSupervisor(){
       <div class="dashboardCols"><div class="card"><div class="sectionhead"><h3>🗺️ خريطة آخر مواقع الموظفين</h3><span class="muted">آخر موقع GPS اليوم</span></div><div class="muted" style="margin-bottom:8px">🏢 نطاق المعرض ${Number(getUiSettings().branchRadius||BRANCH_RADIUS)} متر. حضور المندوب خارج النطاق يُسجل ميدانيًا ويستلزم سببًا.</div><div id="supervisorMap" class="map"></div></div>
       <div class="card"><div class="sectionhead"><h3>📊 تقارير المناديب</h3><span class="pill p-purple">للمشرف فقط</span></div>${reps.map(e=>`<div class="activity"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><b>${esc(e.name)}</b><div class="muted">حضور ${time(att[e.id]?.check_in)} • ${att[e.id]?.check_in&&new Date(att[e.id].check_in)>shiftStartDate()?'بدأ بعد 08:00 — دون احتساب تأخير':'بدأ مع الدوام'}</div></div><button class="btn small" onclick="printRepReport('${e.id}')">🖨️ تقرير</button></div></div>`).join('')||'<div class="muted">لا يوجد مناديب.</div>'}</div></div>
       <div class="card"><div class="sectionhead"><h3>🧭 آخر الزيارات الميدانية</h3><span class="muted">وصول ومغادرة العملاء مع الموقع والوقت</span></div>${acts.filter(x=>String(x.note||'').startsWith('VISIT_')).slice(0,12).map(x=>{let n=String(x.note),p=n.split('|'),arr=n.startsWith('VISIT_ARRIVED'),emp=emps.find(e=>e.id===x.employee_id);return `<div class="activity"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(emp?.name||'موظف')}</b><span class="pill ${arr?'p-green':'p-blue'}">${arr?'وصول عميل':'مغادرة عميل'}</span></div><div class="muted">${esc(p[1]||'')} • ${dateTime(x.created_at)}</div></div>`}).join('')||'<div class="muted">لا توجد زيارات مسجلة اليوم.</div>'}</div>
-      ${attendanceReminderPanel(emps,att)}<div id="dashboardAnalytics"></div>`;
+      ${attendanceReminderPanel(emps,att)}<div id="supervisorWorkCounters"></div><div id="dashboardAnalytics"></div>`;
     initSupervisorMap(emps,att,acts);
+    loadSupervisorWorkCounters(emps,att,acts);
     loadDashboardAnalytics();
     const pw=$('pwEmployee');if(pw)pw.innerHTML=emps.map(e=>`<option value="${e.id}">${esc(e.name)} — ${esc(roleName(e.role))}</option>`).join('');
     const tick=()=>{const x=$('dashClock');if(x)x.textContent=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'})};tick();setInterval(tick,1000);
@@ -1953,9 +1954,10 @@ function fieldHoursBuildSessions(a){const z=[...a].filter(x=>fieldHoursIsStart(x
 function fieldHoursMs(a){const b=fieldHoursBuildSessions(a);return b.sessions.reduce((n,x)=>n+x.ms,0)+(b.open?Math.max(0,Date.now()-new Date(b.open.created_at)):0)}
 function fieldHoursPercent(ms,r){return Math.min(100,Math.round(ms/(r*3600000)*100))}
 function breakMsBetween(a,b){if(!a||!b||b<=a)return 0;const start=new Date(a),end=new Date(b);let total=0;for(let d=new Date(start);d<end;d.setDate(d.getDate()+1)){const day=d.getDay();if(day!==0&&day!==6){} const y=d.getFullYear(),m=d.getMonth(),dt=d.getDate();const bs=new Date(y,m,dt,12,0,0),be=new Date(y,m,dt,13,0,0);const lo=Math.max(start.getTime(),bs.getTime()),hi=Math.min(end.getTime(),be.getTime());if(hi>lo)total+=hi-lo}return total}
-function attendanceWorkMs(a,now=new Date()){if(!a?.check_in)return 0;const start=new Date(a.check_in),end=a.check_out?new Date(a.check_out):now;return Math.max(0,end-start-breakMsBetween(start,end))}
-function combinedWorkMs(attendance,fieldActs,now=new Date()){const attendanceMs=attendanceWorkMs(attendance,now),fieldMs=fieldHoursMs(fieldActs);return {total:attendanceMs,field:Math.min(fieldMs,attendanceMs),branch:Math.max(0,attendanceMs-Math.min(fieldMs,attendanceMs))}}
-async function getTodayFieldHours(){const d=today();let aRows=[];try{aRows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&work_date=eq.'+d)}catch(e){throw Error('تعذر قراءة سجل الحضور: '+e.message)}let allActs=[];try{allActs=await api('/rest/v1/activities?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&order=created_at.asc&limit=500')}catch(e){console.warn('تعذر قراءة الأنشطة الميدانية',e)}const t=allActs.filter(x=>String(x.created_at||'').slice(0,10)===d),b=fieldHoursBuildSessions(t),att=aRows[0]||null,c=combinedWorkMs(att,t);return{acts:t,built:b,ms:c.total,fieldMs:c.field,branchMs:c.branch,required:fieldHoursRequired(me),attendance:att}}
+function isNoBreakEmployee(e){const n=String(e?.name||''),u=String(e?.username||'');return n.includes('يحيى')||/yahya|yahia/i.test(u)}
+function attendanceWorkMs(a,now=new Date(),employee=null){if(!a?.check_in)return 0;const start=new Date(a.check_in),end=a.check_out?new Date(a.check_out):now;const breakMs=isNoBreakEmployee(employee)?0:breakMsBetween(start,end);return Math.max(0,end-start-breakMs)}
+function combinedWorkMs(attendance,fieldActs,now=new Date(),employee=null){const attendanceMs=attendanceWorkMs(attendance,now,employee),fieldMs=fieldHoursMs(fieldActs);return {total:attendanceMs,field:Math.min(fieldMs,attendanceMs),branch:Math.max(0,attendanceMs-Math.min(fieldMs,attendanceMs))}}
+async function getTodayFieldHours(){const d=today();let aRows=[];try{aRows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&work_date=eq.'+d)}catch(e){throw Error('تعذر قراءة سجل الحضور: '+e.message)}let allActs=[];try{allActs=await api('/rest/v1/activities?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&order=created_at.asc&limit=500')}catch(e){console.warn('تعذر قراءة الأنشطة الميدانية',e)}const t=allActs.filter(x=>String(x.created_at||'').slice(0,10)===d),b=fieldHoursBuildSessions(t),att=aRows[0]||null,c=combinedWorkMs(att,t,new Date(),me);return{acts:t,built:b,ms:c.total,fieldMs:c.field,branchMs:c.branch,required:fieldHoursRequired(me),attendance:att}}
 async function startFieldHours(){if(guardHolidayAttendance()||guardAfterShift())return;try{const x=await getTodayFieldHours();if(x.built.open){alert('الساعات الميدانية قيد الاحتساب بالفعل.');return}if(x.ms>=x.required*3600000){alert('تم تحقيق 8 ساعات عمل اليوم، ولا حاجة لبدء جلسة إضافية.');return}const a=x.attendance;if(!a?.check_in){alert('سجل حضورك أولًا قبل بدء الساعات الميدانية.');return}const c=await gps();await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,attendance_id:a.id,activity_type:'TRAVELING',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:'FIELD_HOURS_START|بدء احتساب الساعات الميدانية'})});await renderFieldHours()}catch(e){alert('تعذر بدء احتساب الساعات الميدانية: '+e.message)}}
 async function stopFieldHours(){if(guardHolidayAttendance())return;try{const x=await getTodayFieldHours();if(!x.built.open){alert('لا توجد جلسة ميدانية قيد الاحتساب.');return}const c=await gps(),a=x.attendance;await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,attendance_id:a?.id||null,activity_type:'BRANCH',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:'FIELD_HOURS_END|إيقاف احتساب الساعات الميدانية'})});await renderFieldHours()}catch(e){alert('تعذر إيقاف الساعات الميدانية: '+e.message)}}
 
@@ -1999,7 +2001,7 @@ async function getSupervisorFieldHoursData(kind='day',employeeId=''){
    const employeeAtt=attRows.filter(a=>a.employee_id===e.id);
    const workDays=kind==='day'?1:(()=>{let n=0,d=new Date(range.start+'T12:00:00+03:00'),to=new Date(range.end+'T12:00:00+03:00');for(;d<=to;d.setDate(d.getDate()+1)){if(d.getDay()!==5)n++;}return n})();
    let total=0,field=0,branch=0;
-   for(const a of employeeAtt){const dayActs=employeeActs.filter(x=>String(x.created_at||'').slice(0,10)===a.work_date);const c=combinedWorkMs(a,dayActs,a.check_out?new Date(a.check_out):new Date());total+=c.total;field+=c.field;branch+=c.branch;}
+   for(const a of employeeAtt){const dayActs=employeeActs.filter(x=>String(x.created_at||'').slice(0,10)===a.work_date);const c=combinedWorkMs(a,dayActs,a.check_out?new Date(a.check_out):new Date(),e);total+=c.total;field+=c.field;branch+=c.branch;}
    const target=required*workDays*3600000;
    const sessions=employeeActs.filter(x=>fieldHoursIsStart(x.note)).length;
    const open=fieldHoursBuildSessions(employeeActs).open;
@@ -2473,5 +2475,131 @@ if(token)api('/auth/v1/user').then(boot).catch(()=>logout());
 <script>
 /* V33 runtime guard: if an older cached script left the report function non-async, replace it safely. */
 window.KAS_VERSION='A2-V33';
+</script>
+
+<style>
+/* A2-V34 — leave form refinement + supervisor work counters */
+.supervisorWorkCounterWrap{margin-top:12px}
+.supervisorWorkCounterWrap .sectionhead{margin-bottom:10px}
+.supervisorWorkCounters{display:grid;grid-template-columns:1fr;gap:10px}
+.supervisorWorkCounter{border:1px solid #cbd8e5;border-radius:14px;background:linear-gradient(180deg,#fff,#f7fafc);padding:12px 14px;box-shadow:0 3px 12px rgba(8,40,74,.05)}
+.swcHead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:9px}
+.swcName{font-size:15px;font-weight:950;color:#08284a}.swcRole{font-size:10px;color:#718096;margin-top:2px}
+.swcBadge{font-size:11px;font-weight:950;padding:5px 9px;border-radius:999px;background:#eaf7ef;color:#166534;border:1px solid #b8e0c5}.swcBadge.warn{background:#fff7df;color:#8a5a00;border-color:#efd48a}.swcBadge.off{background:#f1f5f9;color:#64748b;border-color:#d7e0e8}
+.swcGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.swcMetric{border:1px solid #e0e7ef;border-radius:10px;padding:8px;text-align:center;background:#fff}.swcMetric small{display:block;color:#718096;font-size:9px}.swcMetric b{display:block;color:#08284a;font-size:15px;margin-top:3px}
+.swcBar{height:10px;background:#e8eef4;border-radius:99px;overflow:hidden;margin:10px 0 6px}.swcBar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#1769b5,#159447)}
+.swcFoot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;color:#5d7083;font-size:10px}.swcFoot b{color:#08284a}
+@media(max-width:700px){.swcGrid{grid-template-columns:1fr 1fr}.swcMetric b{font-size:13px}}
+
+/* Leave editor: larger, cleaner, with a supervisor-only employee picker/manual name option. */
+.modernLeaveEditor{font-size:14px!important}
+.modernLeaveEditor .modernLeaveEditorHead{padding:24px 26px!important}
+.modernLeaveEditor .modernLeaveEditorHead h2{font-size:30px!important}
+.modernLeaveEditor .modernLeaveSectionTitle{font-size:16px!important;padding:11px 15px!important;margin-top:18px!important}
+.modernLeaveEditor .leaveFormGrid{gap:12px!important}
+.modernLeaveEditor .field label{font-size:13px!important;margin-bottom:6px;display:block}
+.modernLeaveEditor input,.modernLeaveEditor select,.modernLeaveEditor textarea{font-size:14px!important;min-height:44px!important;box-sizing:border-box}
+.modernLeaveEditor textarea{min-height:100px!important}
+.leaveEmployeeMode{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}.leaveEmployeeMode button{border:1px solid #cbd8e5;background:#fff;border-radius:10px;padding:8px 12px;font-weight:900;cursor:pointer}.leaveEmployeeMode button.active{background:#08284a;color:#fff;border-color:#08284a}.leaveManualName{display:none}.leaveManualName.show{display:block}
+.leaveApprovalReadOnly{display:grid;grid-template-columns:1fr 1fr;gap:10px}.leaveApprovalReadOnly .approvalReadBox{border:1px solid #d7e0e8;border-radius:10px;background:#f8fafc;padding:11px}.approvalReadBox small{display:block;color:#718096;font-size:10px}.approvalReadBox b{display:block;margin-top:4px;color:#08284a;font-size:14px}
+.modernLeaveEditor .leaveTypeGrid{gap:9px!important}.modernLeaveEditor .leaveTypeBtn{min-height:50px!important;font-size:14px!important}.modernLeaveEditor .salaryAdvanceBtn{min-height:50px!important;font-size:13px!important}
+.modernLeaveEditor .actionRow{gap:10px!important}.modernLeaveEditor .actionRow .btn{min-height:44px!important;font-size:13px!important;padding:10px 16px!important}
+
+/* Printed A4: title centered, larger fields and stronger alignment. */
+.leavePrintSheet{font-size:9.2px!important;text-align:right}
+.leavePrintSheet .leaveDocTitle{justify-content:center!important;text-align:center!important;margin:2mm 0 5mm!important;padding:9px 12px!important;min-height:15mm!important}
+.leavePrintSheet .leaveDocTitle>div{font-size:20px!important;line-height:1.2!important}
+.leavePrintSheet .leaveDocTitle .en{font-size:9px!important}
+.leavePrintSheet .lvSection{margin-bottom:4mm!important}
+.leavePrintSheet .lvSectionHead{font-size:11px!important;padding:2.8mm 4mm!important;text-align:right!important}
+.leavePrintSheet .lvField{min-height:14mm!important;padding:2.6mm 2.8mm!important;text-align:right!important}
+.leavePrintSheet .lvLabel{font-size:8.5px!important;margin-bottom:1.5mm!important;text-align:right!important}
+.leavePrintSheet .lvValue{font-size:10.5px!important;line-height:1.45!important;min-height:6mm!important;text-align:right!important}
+.leavePrintSheet .lvChecks{justify-content:flex-start!important;gap:2.5mm!important;font-size:8.5px!important}
+.leavePrintSheet .lvReason .lvField{min-height:22mm!important}.leavePrintSheet .lvReason .lvValue{min-height:16mm!important}
+.leavePrintSheet .lvEmployeeSignTop{min-height:14mm!important}.leavePrintSheet .lvEmployeeSignTop .lvSigBox{min-height:11mm!important}
+.leavePrintSheet .leavePrintFooter{font-size:7.5px!important;padding:2.2mm!important}
+@media print{.leavePrintSheet{font-size:9px!important}.leavePrintSheet .lvField{min-height:13.5mm!important}.leavePrintSheet .lvSection{margin-bottom:3.5mm!important}.leavePrintSheet .leaveDocTitle{margin-bottom:4mm!important}}
+</style>
+<script>
+/* A2-V34 runtime refinements */
+window.KAS_VERSION='A2-V34';
+
+function supervisorEmployeeCountersData(emps,att,acts){
+  const now=new Date();
+  return emps.map(e=>{
+    const a=att[e.id]||null;
+    const employeeActs=acts.filter(x=>x.employee_id===e.id && String(x.created_at||'').slice(0,10)===today());
+    const c=combinedWorkMs(a,employeeActs,now,e);
+    const required=8*3600000, pct=Math.min(100,Math.round(c.total/required*100)), remain=Math.max(0,required-c.total);
+    const closed=!!a?.check_out || afterShift(e);
+    const off=isWeeklyOffForEmployee(e);
+    return {e,a,c,pct,remain,closed,off};
+  });
+}
+function renderSupervisorWorkCounters(data){
+  return `<div class="card supervisorWorkCounterWrap"><div class="sectionhead"><div><h3>⏱️ إنجاز ساعات الدوام اليومي</h3><div class="muted">عداد مستقل لكل موظف — المستهدف 8 ساعات عمل فعلية</div></div><span class="pill p-blue">متابعة المشرف</span></div><div class="supervisorWorkCounters">${data.map(x=>{
+    const done=x.pct>=100, off=!!x.off;
+    const state=off?'إجازة أسبوعية':done?'✓ مكتمل':x.a?.check_in?'🟢 يعمل':'⏳ لم يبدأ';
+    const cls=off?'off':done?'':'warn';
+    return `<div class="supervisorWorkCounter"><div class="swcHead"><div><div class="swcName">${esc(x.e.name)}</div><div class="swcRole">${esc(roleName(x.e.role))}${isNoBreakEmployee(x.e)?' • بدون خصم استراحة':''}</div></div><span class="swcBadge ${cls}">${state}</span></div><div class="swcGrid"><div class="swcMetric"><small>المنجز</small><b>${formatHours(x.c.total)}</b></div><div class="swcMetric"><small>المستهدف</small><b>8:00 س</b></div><div class="swcMetric"><small>المتبقي</small><b>${done?'0:00 س':formatHours(x.remain)}</b></div><div class="swcMetric"><small>الإنجاز</small><b>${x.pct}%</b></div></div><div class="swcBar"><i style="width:${x.pct}%"></i></div><div class="swcFoot"><span>الحضور: <b>${time(x.a?.check_in)}</b></span><span>الانصراف: <b>${time(x.a?.check_out)}</b></span><span>${x.a?.check_in?'العداد محسوب من الحضور الفعلي':'بانتظار تسجيل الحضور'}</span></div></div>`;
+  }).join('')}</div></div>`;
+}
+async function loadSupervisorWorkCounters(emps,att,acts){
+  const el=$('supervisorWorkCounters'); if(!el||me?.role!=='SUPERVISOR')return;
+  try{el.innerHTML=renderSupervisorWorkCounters(supervisorEmployeeCountersData(emps,att,acts));
+    clearInterval(window._supervisorCounterTimer);
+    window._supervisorCounterTimer=setInterval(()=>{if(!me||me.role!=='SUPERVISOR'){clearInterval(window._supervisorCounterTimer);return}const fresh=supervisorEmployeeCountersData(window._employees||emps,window._todayAttendance||att,window._todayActivities||acts);el.innerHTML=renderSupervisorWorkCounters(fresh)},1000);
+  }catch(e){el.innerHTML='<div class="card msg err">تعذر حساب عدادات الدوام: '+esc(e.message)+'</div>'}
+}
+
+/* Keep the employee name secure for regular users, while the supervisor can choose an employee or enter a manual name for printing. */
+const _oldRenderLeaveCenter=renderLeaveCenter;
+async function renderLeaveCenter(){
+  await _oldRenderLeaveCenter();
+  {
+    const grid=document.querySelector('.modernLeaveEditor .leaveFormGrid');
+    const first=grid?.querySelector('#leaveEmployee')?.closest('.field');
+    if(first && !document.getElementById('leaveManualName')){
+      first.innerHTML=`<label>اسم الموظف</label><div class="leaveEmployeeMode"><button type="button" id="leaveModeSelect" class="active" onclick="setLeaveEmployeeMode('select')">اختيار من الموظفين</button><button type="button" id="leaveModeManual" onclick="setLeaveEmployeeMode('manual')">تعبئة يدوية</button></div><select id="leaveEmployee" onchange="loadLeaveEmployeeDefaults()">${(window._employees||[]).filter(e=>e.active!==false).map(e=>`<option value="${e.id}">${esc(e.name)} — ${esc(roleName(e.role))}</option>`).join('')}</select><input id="leaveManualName" class="leaveManualName" placeholder="اكتب اسم الموظف يدويًا">`;
+    }
+    const mgr=document.querySelector('.leaveManagerApprovalEditor');
+    if(mgr){mgr.innerHTML=`<div class="leaveApprovalReadOnly"><div class="approvalReadBox"><small>المدير المباشر</small><b id="leaveManagerReadonly">${me?.role==='SUPERVISOR'?'مشرف الفرع':'مشرف الفرع'}</b></div><div class="approvalReadBox"><small>حالة اعتماد المدير المباشر</small><b>بانتظار الاعتماد</b></div><div class="approvalReadBox"><small>اعتماد الموارد البشرية</small><b>بانتظار الاعتماد</b></div><div class="approvalReadBox"><small>حالة الطلب</small><b>يُرسل للمراجعة بعد الحفظ</b></div></div><div class="muted" style="margin-top:8px">لا يمكن لمقدم الطلب اختيار موافقة أو رفض المدير المباشر أو الموارد البشرية. الاعتماد يتم من أصحاب الصلاحية بعد إرسال الطلب.</div>`;}
+    const hr=document.getElementById('leaveHRDecision'); if(hr){hr.value='PENDING';hr.disabled=true;}
+    const md=document.getElementById('leaveManagerDecision'); if(md){md.value='PENDING';}
+    const managerInput=document.getElementById('leaveManager'); if(managerInput){managerInput.value='مشرف الفرع';managerInput.readOnly=true;}
+  }
+}
+function setLeaveEmployeeMode(mode){
+  const s=document.getElementById('leaveEmployee'),m=document.getElementById('leaveManualName'),bs=document.getElementById('leaveModeSelect'),bm=document.getElementById('leaveModeManual');
+  if(!s||!m)return;
+  if(mode==='manual'){s.style.display='none';m.classList.add('show');bs?.classList.remove('active');bm?.classList.add('active');m.focus();}
+  else{s.style.display='block';m.classList.remove('show');bs?.classList.add('active');bm?.classList.remove('active');loadLeaveEmployeeDefaults();}
+}
+const _oldLeavePrintDataFromForm=leavePrintDataFromForm;
+leavePrintDataFromForm=function(){const d=_oldLeavePrintDataFromForm();if(me?.role==='SUPERVISOR'&&document.getElementById('leaveManualName')?.classList.contains('show')){d.employee_name=document.getElementById('leaveManualName').value.trim()||'________________';d.employee_no=document.getElementById('leaveEmployeeNo')?.value||'';}d.manager_decision='PENDING';d.hr_decision='PENDING';return d};
+const _oldSaveLeaveRequest=saveLeaveRequest;
+saveLeaveRequest=async function(){if(me?.role==='SUPERVISOR'&&document.getElementById('leaveManualName')?.classList.contains('show')){const msg=document.getElementById('leaveMsg');if(msg)msg.innerHTML='<div class="msg err">التعبئة اليدوية متاحة للطباعة فقط. لا بد من اختيار موظف من القائمة لحفظ الطلب في سجل الإجازات.</div>';return}return _oldSaveLeaveRequest()};
+
+/* Refresh the supervisor counters without attributing a preparation action to the supervisor in the employee-facing data. */
+const _oldSupervisorAttendanceAction=supervisorAttendanceAction;
+supervisorAttendanceAction=async function(employeeId,action){
+  if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
+  if(guardHolidayAttendance())return;
+  const labels={CHECK_IN:'تحضير الموظف',CHECK_OUT:'صرف الموظف',REOPEN:'إعادة فتح الدوام'};
+  const reason=prompt(`سبب ${labels[action]||action} (اختياري):`,''); if(reason===null)return;
+  try{await api('/rest/v1/rpc/supervisor_attendance_action',{method:'POST',body:JSON.stringify({p_employee_id:employeeId,p_action:action,p_reason:reason||null})});await renderSupervisor();}catch(e){alert('تعذر تنفيذ العملية: '+e.message)}
+};
+
+/* Supervisor end-of-day notice: show a clear notification before the automatic sign-out. */
+(function(){
+  let lastNoticeDay='';
+  function checkSupervisorEndNotice(){
+    if(!me||me.role!=='SUPERVISOR')return;
+    const now=new Date(),end=shiftEndDate(),day=today();
+    if(now>=end&&lastNoticeDay!==day){lastNoticeDay=day;alert('⏰ انتهى وقت الدوام اليوم الساعة '+SHIFT_END+' .\nتم إغلاق عداد الدوام اليومي، وسيتم تسجيل الخروج تلقائيًا.');}
+  }
+  setInterval(checkSupervisorEndNotice,1000); setTimeout(checkSupervisorEndNotice,500);
+})();
 </script>
 </body></html>
