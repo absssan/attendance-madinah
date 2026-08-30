@@ -2407,4 +2407,71 @@ if(token)api('/auth/v1/user').then(boot).catch(()=>logout());
  events.forEach(e=>document.addEventListener(e,()=>{if(!document.getElementById('idleOverlay'))reset()},{passive:true}));document.addEventListener('visibilitychange',()=>{if(!document.hidden)check()});setInterval(check,15000);window.startIdleProtection=reset;
 })();
 </script>
+
+<style>
+/* V33 — horizontal rep reports + final A4 leave form */
+.reportPrintSheet{max-width:198mm!important;margin:0 auto!important;font-family:Tahoma,Arial,sans-serif!important;direction:rtl!important}
+.reportPrintSheet .repPage{border:1px solid #c8d2dc;border-radius:10px;padding:10px;margin-bottom:12px;background:#fff;page-break-inside:avoid}
+.reportPrintSheet .repPage h2{margin:0 0 9px!important;padding:7px 10px;border-right:4px solid #f2c300;background:linear-gradient(90deg,#f6f9fc,#fff);border-radius:6px;font-size:15px!important}
+.reportPrintSheet .report-grid{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:6px!important;margin:0 0 9px!important;direction:rtl!important}
+.reportPrintSheet .report-box{min-width:0!important;border:1px solid #cbd6e2!important;border-radius:7px!important;padding:6px 5px!important;text-align:center!important;background:linear-gradient(180deg,#fff,#f7fafc)!important}
+.reportPrintSheet .report-box::before{content:'';display:block;width:20px;height:2px;background:#f2c300;margin:0 auto 4px;border-radius:2px}
+.reportPrintSheet .report-box b{display:block!important;font-size:11px!important;color:#08284a!important;margin-top:3px!important;overflow-wrap:anywhere}
+.reportPrintSheet .report-box{font-size:8px!important;color:#64748b!important;font-weight:800}
+.reportPrintSheet h3{font-size:10px!important;color:#08284a!important;margin:7px 0 5px!important}
+.reportPrintSheet table{font-size:8px!important}
+.reportPrintSheet th,.reportPrintSheet td{font-size:8px!important;padding:5px 4px!important}
+.reportPrintSheet footer{font-size:8px!important}
+
+/* Keep leave navigation available to every authenticated role and make the editor easier to scan. */
+#leaveNav{display:flex!important}
+.modernLeaveEditor .leaveFormGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.modernLeaveEditor .leaveFormGrid .field.full{grid-column:1/-1}
+.modernLeaveEditor .field label{color:#173f69;font-weight:900}
+.modernLeaveEditor textarea{width:100%;resize:vertical;padding:12px;border:1px solid #d7e0e8;border-radius:11px;outline:none;background:#fff}
+.modernLeaveEditor textarea:focus{border-color:#1769b5;box-shadow:0 0 0 3px rgba(23,105,181,.08)}
+.modernLeaveEditor .leaveTypeGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.modernLeaveEditor .leaveTypeBtn{min-height:46px;border:1px solid #d7e0e8;border-radius:11px;background:#fff;color:#23415e;font-weight:900;cursor:pointer}
+.modernLeaveEditor .leaveTypeBtn.active{background:#eaf7ef;border-color:#159447;color:#166534;box-shadow:inset 0 0 0 1px #159447}
+.modernLeaveEditor .salaryAdvanceGrid{display:grid;grid-template-columns:1fr 1fr}
+.modernLeaveEditor .salaryAdvanceBtn{width:100%;min-height:46px}
+.modernLeaveEditor .actionRow .btn:first-child{background:linear-gradient(135deg,#0d477d,#1769b5)!important}
+
+/* Final printed leave sheet: compact, horizontal fields, one-page A4. */
+.leavePrintSheet{width:198mm!important;max-width:198mm!important;margin:0 auto!important;font-size:8px!important}
+.leavePrintSheet .leaveDocTitle{display:flex!important;align-items:center!important;justify-content:center!important;gap:12px!important;background:linear-gradient(135deg,#08284a,#1769b5)!important;color:#fff!important;border-radius:8px!important;padding:7px 10px!important;margin-bottom:7px!important}
+.leavePrintSheet .leaveDocTitle>div{font-size:17px!important;font-weight:950!important}
+.leavePrintSheet .leaveDocTitle .en{font-size:8px!important;color:#e5eef8!important;font-weight:800!important}
+.leavePrintSheet .lvGrid.four{grid-template-columns:repeat(6,minmax(0,1fr))!important}
+.leavePrintSheet .lvGrid.four .lvField{min-height:11mm!important}
+.leavePrintSheet .lvGrid.three{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+.leavePrintSheet .lvGrid.three .lvField{min-height:11mm!important}
+.leavePrintSheet .lvManagerRow{grid-template-columns:1.35fr 1fr 1fr 1fr!important}
+.leavePrintSheet .lvChecks{justify-content:center!important;gap:1.2mm!important;line-height:1.45!important}
+.leavePrintSheet .lvReason .lvField{min-height:17mm!important}
+.leavePrintSheet .leavePrintFooter{text-align:center!important;font-weight:900!important}
+@media(max-width:800px){
+ .modernLeaveEditor .leaveFormGrid{grid-template-columns:1fr 1fr}
+ .modernLeaveEditor .leaveTypeGrid{grid-template-columns:1fr 1fr}
+ .modernLeaveEditor .salaryAdvanceGrid{grid-template-columns:1fr}
+ .reportPrintSheet .report-grid{grid-template-columns:repeat(2,1fr)!important}
+}
+@media(max-width:600px){
+ .modernLeaveEditor .leaveFormGrid{grid-template-columns:1fr}
+ .modernLeaveEditor .leaveFormGrid .field.full{grid-column:auto}
+ .modernLeaveEditor .leaveTypeGrid{grid-template-columns:1fr 1fr}
+}
+@media print{
+ .reportPrintSheet .repPage{border:0!important;padding:0!important;margin:0!important}
+ .reportPrintSheet .report-grid{grid-template-columns:repeat(5,1fr)!important}
+ .reportPrintSheet .report-box{padding:5px 3px!important}
+ .reportPrintSheet .report-box b{font-size:10px!important}
+ .leavePrintSheet .lvSection{page-break-inside:avoid!important}
+ .leavePrintSheet .leaveDocTitle{print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}
+}
+</style>
+<script>
+/* V33 runtime guard: if an older cached script left the report function non-async, replace it safely. */
+window.KAS_VERSION='A2-V33';
+</script>
 </body></html>
