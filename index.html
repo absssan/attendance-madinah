@@ -2838,4 +2838,150 @@ supervisorAttendanceAction=async function(employeeId,action){
   document.addEventListener('DOMContentLoaded',addNav41);setTimeout(addNav41,1000);
 })();
 </script>
+<style id="A2V42FinalFixStyles">
+  .appNav button[hidden],.appNav button.navHidden{display:none!important}
+  .appNav button{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}
+  .appNav button.navBusy{opacity:.72;transform:none!important;cursor:wait}
+  .requestCenterGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .requestCenterSection{min-width:0}
+  .requestCenterEmpty{padding:14px;border:1px dashed #cbd6e2;border-radius:12px;background:#f8fafc;color:#64748b;text-align:center}
+  @media(max-width:850px){.requestCenterGrid{grid-template-columns:1fr}}
+</style>
+<script>
+/* A2_V42 — final workflow, request-center and permission hardening */
+(function(){
+  'use strict';
+
+  // Never let the leave center fail because a label dictionary is missing or late.
+  window.KAS_LEAVE_TYPES = window.KAS_LEAVE_TYPES || Object.freeze({
+    ANNUAL:'إجازة سنوية', SICK:'إجازة مرضية', EMERGENCY:'ظرف طارئ',
+    UNPAID:'إجازة بدون راتب', OTHER:'أخرى'
+  });
+  window.KAS_LEAVE_STATUS = window.KAS_LEAVE_STATUS || Object.freeze({
+    PENDING:'قيد المراجعة', APPROVED:'معتمد', REJECTED:'مرفوض', CANCELLED:'ملغى'
+  });
+  window.KAS_LEAVE_STATUS_CLASS = window.KAS_LEAVE_STATUS_CLASS || Object.freeze({
+    PENDING:'p-orange', APPROVED:'p-green', REJECTED:'p-red', CANCELLED:'p-purple'
+  });
+  window.safeLeaveTypeLabelA2 = function(x){
+    const map=window.KAS_LEAVE_TYPES||{}; return map[x] || String(x||'—');
+  };
+
+  // Explicit UI matrix: a button is shown only when the current role/permission allows it.
+  function canSeeNavA2(key){
+    if(!window.me) return false;
+    if(me.role==='SUPERVISOR') return true;
+    if(key==='dashboard') return true;
+    if(key==='fieldhours') return me.role==='FIELD_REP';
+    if(key==='leave') return true; // employees may submit their own leave request
+    if(key==='issue') return me.role==='FIELD_REP' && hasPermission('issue');
+    if(key==='requests'||key==='employees'||key==='custody'||key==='custodyHistory'||key==='supervisorLeave') return false;
+    const rules={reports:'reports',pricing:'pricing',unbilled:'unbilled',customers:'customers',cash:'cash_journal',notifications:'notifications',settings:'dashboard',inventory:'inventory_view'};
+    const perm=rules[key];
+    return !!perm && hasPermission(perm);
+  }
+
+  window.applyNavPermissions=function(){
+    document.querySelectorAll('.appNav button').forEach(function(b){
+      const onclick=b.getAttribute('onclick')||'';
+      let key=null;
+      const m=onclick.match(/appNavigate\(['\"]([^'\"]+)['\"]\)/);
+      if(m) key=m[1];
+      else if(b.id==='leaveNav') key='leave';
+      else if(b.id==='custodyHistoryNavV41') key='custodyHistory';
+      else if(b.id==='supervisorLeaveNavV41') key='supervisorLeave';
+      else if(onclick.includes('logout')) return;
+      if(key==='dashboard') { b.classList.remove('navHidden'); b.hidden=false; return; }
+      const visible=canSeeNavA2(key);
+      b.hidden=!visible;
+      b.classList.toggle('navHidden',!visible);
+    });
+    // Keep wording consistent with role.
+    const issue=document.getElementById('issueNav');
+    if(issue && me){issue.innerHTML='<span>📤</span> '+(me.role==='SUPERVISOR'?'إخراج بضاعة':'طلب إخراج بضاعة');}
+    const fh=document.getElementById('fieldHoursNav');
+    if(fh && me?.role==='SUPERVISOR') fh.innerHTML='<span>⏱️</span> ساعات المناديب';
+  };
+
+  // Stable request center: does not depend on optional embedded relations or a fragile label lookup.
+  window.renderRequestsCenter=async function(){
+    if(me?.role!=='SUPERVISOR'){
+      const c=$('content'); if(c)c.innerHTML='<div class="card"><div class="msg err">الطلبات متاحة للمشرف فقط.</div></div>';
+      return;
+    }
+    const c=$('content'); if(!c)return;
+    c.innerHTML='<div class="card"><div class="muted">جارٍ تحميل مركز الطلبات...</div></div>';
+    try{
+      const [leaveRows,issueRows,emps]=await Promise.all([
+        api('/rest/v1/leave_requests?select=*&order=created_at.desc&limit=500'),
+        api('/rest/v1/showroom_issue_forms?select=*&order=created_at.desc&limit=500'),
+        api('/rest/v1/employees?select=id,name,role,active&order=name')
+      ]);
+      const employeeMap=Object.fromEntries((emps||[]).map(e=>[e.id,e]));
+      const pendingLeave=(leaveRows||[]).filter(x=>x.status==='PENDING');
+      const pendingIssue=(issueRows||[]).filter(x=>{
+        try{const n=JSON.parse(x.notes||'{}');return n?.__A2_ISSUE_WORKFLOW__?.status==='PENDING';}
+        catch(_){return false;}
+      });
+      const issueMeta=r=>{try{const n=JSON.parse(r.notes||'{}');return n?.__A2_ISSUE_WORKFLOW__||{};}catch(_){return {};}};
+      const leaveHtml=pendingLeave.map(r=>{
+        const emp=employeeMap[r.employee_id]?.name||'—';
+        return `<div class="issueCard"><div class="issueCardHead"><div><b>${esc(emp)}</b><div class="muted">${esc(safeLeaveTypeLabelA2(r.leave_type))} — ${esc(r.start_date||'')} إلى ${esc(r.end_date||'')}</div></div><span class="pill p-orange">قيد المراجعة</span></div><div class="issueCardBody"><div class="issueMeta"><div class="box">المدة<b>${Number(r.days_count||0)} يوم</b></div><div class="box">تاريخ الطلب<b>${dateTime(r.created_at)}</b></div><div class="box">الملاحظات<b>${esc(r.reason||'—')}</b></div></div><div class="actionRow no-print"><button class="btn small" onclick="decideLeave('${r.id}','APPROVED')">✓ قبول</button><button class="btn danger small" onclick="decideLeave('${r.id}','REJECTED')">✕ رفض</button><button class="btn secondary small" onclick="printSavedLeave('${r.id}')">🖨️ طباعة</button></div></div></div>`;
+      }).join('') || '<div class="requestCenterEmpty">لا توجد إجازات معلقة.</div>';
+      const issueHtml=pendingIssue.map(r=>{
+        const m=issueMeta(r), emp=employeeMap[r.created_by]?.name||r.recipient||m.requested_by_name||'—';
+        return `<div class="issueCard"><div class="issueCardHead"><div><b>طلب إخراج من ${esc(emp)}</b><div class="muted">${esc(r.issue_date||'')} — ${esc(r.tire_type||'')} — ${esc(r.size_model||'')}</div></div><span class="pill p-orange">قيد الموافقة</span></div><div class="issueCardBody"><div class="issueMeta"><div class="box">الكمية<b>${Number(r.quantity||0)}</b></div><div class="box">السبب<b>${esc(r.reason||'—')}</b></div><div class="box">ملاحظات<b>${esc(m.user_notes||'—')}</b></div><div class="box">المشرف<b>${esc(r.supervisor_name||'مشرف الفرع')}</b></div></div><div class="actionRow no-print"><button class="btn small" onclick="approveRepIssueRequest('${r.id}')">✓ قبول وإخراج</button><button class="btn danger small" onclick="rejectRepIssueRequest('${r.id}')">✕ رفض</button><button class="btn secondary small" onclick="printIssueFormAny('${r.id}')">🖨️ طباعة</button></div></div></div>`;
+      }).join('') || '<div class="requestCenterEmpty">لا توجد طلبات إخراج معلقة.</div>';
+      c.innerHTML=`<div class="card"><div class="sectionhead"><h3>📨 مركز الطلبات</h3><span class="pill p-orange">${pendingLeave.length+pendingIssue.length} طلب معلق</span></div><div class="requestCenterGrid"><section class="requestCenterSection"><div class="sectionhead"><h3>📅 طلبات الإجازات</h3><span class="pill p-orange">${pendingLeave.length}</span></div>${leaveHtml}</section><section class="requestCenterSection"><div class="sectionhead"><h3>📤 طلبات إخراج البضاعة</h3><span class="pill p-orange">${pendingIssue.length}</span></div>${issueHtml}</section></div></div>`;
+      setActiveNav('requests');
+    }catch(e){
+      c.innerHTML='<div class="card"><div class="msg err">تعذر تحميل مركز الطلبات: '+esc(e?.message||e)+'</div></div>';
+    }
+  };
+
+  // Guard navigation and prevent double taps while a screen is loading.
+  const previousNavigate=window.appNavigate;
+  let navBusy=false;
+  window.appNavigate=async function(key){
+    if(!me) return;
+    if(!canSeeNavA2(key) && !['logout'].includes(key)){
+      alert('لا تملك صلاحية الدخول إلى هذه الصفحة.');
+      applyNavPermissionsA2Safe();
+      return;
+    }
+    if(navBusy) return;
+    navBusy=true;
+    const btn=[...document.querySelectorAll('.appNav button')].find(b=>((b.getAttribute('onclick')||'').includes("appNavigate('"+key+"')")));
+    if(btn)btn.classList.add('navBusy');
+    try{
+      if(key==='requests') return await renderRequestsCenter();
+      return await previousNavigate(key);
+    }catch(e){
+      const cc=$('content'); if(cc)cc.innerHTML='<div class="card"><div class="msg err">تعذر فتح الصفحة: '+esc(e?.message||e)+'</div></div>';
+    }finally{
+      navBusy=false; if(btn)btn.classList.remove('navBusy'); applyNavPermissionsA2Safe();
+    }
+  };
+  function applyNavPermissionsA2Safe(){try{window.applyNavPermissions();}catch(_){} }
+
+  // Fix the field-rep issue request UX and show a precise backend error if anything unexpected occurs.
+  const oldSubmit=window.submitRepIssueRequest;
+  window.submitRepIssueRequest=async function(){
+    if(me?.role!=='FIELD_REP'){alert('طلب إخراج البضاعة متاح للمندوب فقط.');return;}
+    const btn=[...document.querySelectorAll('button')].find(b=>(b.getAttribute('onclick')||'').includes('submitRepIssueRequest()'));
+    if(btn)btn.disabled=true;
+    try{return await oldSubmit();}
+    finally{if(btn)btn.disabled=false;}
+  };
+
+  // Re-apply after login, after dynamic supervisor buttons are injected, and on resize.
+  const oldBoot=window.boot;
+  if(typeof oldBoot==='function'){
+    window.boot=async function(user){const result=await oldBoot(user);applyNavPermissionsA2Safe();return result;};
+  }
+  setTimeout(applyNavPermissionsA2Safe,50);
+  setTimeout(applyNavPermissionsA2Safe,500);
+  window.addEventListener('resize',applyNavPermissionsA2Safe,{passive:true});
+})();
+</script>
 </body></html>
