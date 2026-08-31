@@ -2523,7 +2523,7 @@ window.KAS_VERSION='A2-V33';
 </style>
 <script>
 /* A2-V34 runtime refinements */
-window.KAS_VERSION='A2-V36';
+window.KAS_VERSION='A2-V38';
 
 /* A2-V36 final rules: everyone checks out at 17:00; daily achievement is hard-capped at 8 hours. */
 autoCloseDate=function(){return shiftEndDate()};
@@ -2749,4 +2749,157 @@ supervisorAttendanceAction=async function(employeeId,action){
   window.printLeaveDraft=window.printLeaveDraft||function(){printLeaveHtml(leavePrintHtml(leavePrintDataFromForm(),false));};
 })();
 </script>
+
+<style>
+.approvalsBadge{position:relative}
+.approvalsBadge .badgeDot{position:absolute;top:6px;right:8px;min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:#d72d36;color:#fff;font-size:10px;display:grid;place-items:center;font-weight:900}
+.approvalSummary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.approvalSummary .box{border:1px solid #dbe5ee;border-radius:13px;background:#f8fafc;padding:12px;text-align:center}
+.approvalSummary b{display:block;font-size:22px;color:#08284a;margin-top:3px}
+.inventorySearchBar{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:10px;align-items:end;margin-bottom:12px}
+.inventorySearchBar .field{margin:0}
+@media(max-width:700px){.approvalSummary{grid-template-columns:1fr 1fr}.inventorySearchBar{grid-template-columns:1fr}}
+</style>
+<script>
+(function(){
+  const LT={ANNUAL:'إجازة سنوية',SICK:'إجازة مرضية',EMERGENCY:'ظرف طارئ',UNPAID:'إجازة بدون راتب',OTHER:'أخرى'};
+  const LS={PENDING:'قيد المراجعة',APPROVED:'معتمد',REJECTED:'مرفوض',CANCELLED:'ملغى'};
+  const LC={PENDING:'p-orange',APPROVED:'p-green',REJECTED:'p-red',CANCELLED:'p-purple'};
+  const IS={PENDING:'قيد موافقة المشرف',APPROVED:'تمت الموافقة والإخراج',REJECTED:'مرفوض',CANCELLED:'ملغى'};
+  const IC={PENDING:'p-orange',APPROVED:'p-green',REJECTED:'p-red',CANCELLED:'p-purple'};
+  const escV38=s=>typeof esc==='function'?esc(s==null?'':String(s)):String(s==null?'':s);
+  const leaveTypeV38=x=>LT[x]||x||'—';
+  const leaveStatusV38=x=>LS[x]||x||'—';
+  const leaveClassV38=x=>LC[x]||'p-blue';
+  const issueStatusV38=r=>r?.status||'PENDING';
+  const issueLabelV38=r=>IS[issueStatusV38(r)]||'قيد المراجعة';
+  const issueClassV38=r=>IC[issueStatusV38(r)]||'p-blue';
+
+  /* الإجازات: إعادة بناء الفتح من مصدر مستقل لتفادي خطأ ANNUAL من الكاش القديم. */
+  window.renderLeaveCenter=async function(){
+    const c=$('content'); if(!c)return;
+    c.innerHTML='<div class="card"><div class="muted">جارٍ تحميل نموذج الإجازة...</div></div>';
+    try{
+      const sup=me?.role==='SUPERVISOR';
+      const emps=sup?await api('/rest/v1/employees?select=id,name,role,active,employee_no,employee_number,username&active=eq.true&order=name'):[];
+      const rows=await api(sup?'/rest/v1/leave_requests?select=*&order=created_at.desc&limit=200':'/rest/v1/leave_requests?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&order=created_at.desc&limit=100');
+      const selected=sup?(emps[0]?.id||''):me.id;
+      const se=emps.find(e=>e.id===selected)||me||{};
+      const opts=emps.map(e=>'<option value="'+e.id+'">'+escV38(e.name)+' — '+escV38(roleName(e.role))+'</option>').join('');
+      const rowsHtml=function(arr,decision){
+        if(!arr.length)return '<div class="muted">لا توجد طلبات إجازة.</div>';
+        return arr.map(function(r){
+          let x={};try{x=JSON.parse(r.employee_note||'{}')}catch(_){}
+          const nm=(emps.find(e=>e.id===r.employee_id)?.name)||x.employee_name||(r.employee_id===me?.id?me.name:'—');
+          let actions='<button class="btn secondary small" onclick="printSavedLeave(\''+r.id+'\')">🖨️ طباعة النموذج</button>';
+          if(decision&&r.status==='PENDING')actions+='<button class="btn small" onclick="decideLeave(\''+r.id+'\',\'APPROVED\')">✓ اعتماد</button><button class="btn danger small" onclick="decideLeave(\''+r.id+'\',\'REJECTED\')">✕ رفض</button>';
+          if(!decision&&r.status==='PENDING')actions+='<button class="btn danger small" onclick="decideLeave(\''+r.id+'\',\'CANCELLED\')">إلغاء</button>';
+          return '<div class="leaveRequestCard"><div class="leaveRequestHead"><div><b>'+escV38(nm)+'</b><div class="muted">'+escV38(leaveTypeV38(r.leave_type))+' — '+escV38(r.start_date)+' إلى '+escV38(r.end_date)+'</div></div><span class="pill '+leaveClassV38(r.status)+'">'+escV38(leaveStatusV38(r.status))+'</span></div><div class="leaveRequestBody"><div class="leaveMeta"><div class="box"><small>المدة</small><b>'+Number(r.days_count||0)+' يوم</b></div><div class="box"><small>تاريخ الطلب</small><b>'+escV38(r.created_at?dateTime(r.created_at):'—')+'</b></div><div class="box"><small>العنوان</small><b>'+escV38(x.address||'—')+'</b></div><div class="box"><small>ملاحظة المشرف</small><b>'+escV38(r.supervisor_note||'—')+'</b></div></div><div class="actionRow no-print" style="margin-top:10px">'+actions+'</div></div></div>';
+        }).join('');
+      };
+      c.innerHTML='<div class="card modernLeaveEditor"><div class="modernLeaveEditorHead"><div><div class="modernLeaveKicker">KAS TIRES • MEDINA BRANCH</div><h2>طلب إجازة</h2><div>LEAVE REQUEST FORM</div></div><div class="modernLeaveCalendar">✓</div></div><div class="msg ok">النموذج متاح للمشرف وجميع الموظفين. بعد الحفظ يرسل الطلب للمراجعة.</div><div class="modernLeaveSectionTitle">بيانات الموظف</div><div class="leaveFormGrid">'+(sup?'<div class="field"><label>اسم الموظف</label><select id="leaveEmployee" onchange="loadLeaveEmployeeDefaults()">'+opts+'</select></div>':'<div class="field"><label>اسم الموظف</label><input value="'+escV38(me.name)+'" readonly></div>')+'<div class="field"><label>رقم الموظف</label><input id="leaveEmployeeNo" value="'+escV38(se.employee_no||se.employee_number||se.username||'')+'" readonly></div><div class="field"><label>الوظيفة</label><input id="leavePosition" value="'+escV38(roleName(se.role||me?.role))+'"></div><div class="field"><label>الإدارة / القسم</label><input id="leaveDepartment"></div><div class="field"><label>الفرع</label><input id="leaveBranch" value="فرع المدينة المنورة"></div><div class="field"><label>تاريخ تقديم الطلب</label><input id="leaveRequestDate" type="date" value="'+today()+'"></div></div><div class="modernLeaveSectionTitle">تفاصيل الإجازة</div><div class="leaveFormGrid"><div class="field"><label>تاريخ بدء الإجازة</label><input id="leaveStart" type="date" onchange="updateLeaveDays()"></div><div class="field"><label>تاريخ نهاية الإجازة</label><input id="leaveEnd" type="date" onchange="updateLeaveDays()"></div><div class="field"><label>عدد الأيام</label><input id="leaveDays" readonly></div><div class="field"><label>آخر إجازة</label><input id="leaveLastDate" type="date"></div><div class="field full"><label>نوع الإجازة</label><div class="leaveTypeGrid modernLeaveTypes"><button class="leaveTypeBtn active" data-leave="ANNUAL" onclick="selectLeaveType(this)">☑ سنوية</button><button class="leaveTypeBtn" data-leave="SICK" onclick="selectLeaveType(this)">☐ مرضية</button><button class="leaveTypeBtn" data-leave="EMERGENCY" onclick="selectLeaveType(this)">☐ طارئة</button><button class="leaveTypeBtn" data-leave="UNPAID" onclick="selectLeaveType(this)">☐ بدون راتب</button><button class="leaveTypeBtn" data-leave="OTHER" onclick="selectLeaveType(this)">☐ أخرى</button></div><input type="hidden" id="leaveType" value="ANNUAL"></div><div class="field full"><label>العنوان أثناء الإجازة</label><input id="leaveAddress"></div><div class="field full"><label>سبب الإجازة / الملاحظات</label><textarea id="leaveReason" rows="3"></textarea></div></div><div class="modernApprovalHint">حالة الطلب عند الإرسال: <b>قيد المراجعة</b>. الاعتماد أو الرفض يتم من المشرف.</div><div class="actionRow no-print"><button class="btn small" onclick="saveLeaveRequestV38()">💾 حفظ وإرسال</button><button class="btn secondary small" onclick="printLeaveBlank()">🖨️ نموذج فارغ</button><button class="btn secondary small" onclick="printLeaveDraft()">🖨️ طباعة الطلب</button></div><div id="leaveMsg"></div></div>'+(sup?'<div class="card"><div class="sectionhead"><h3>🧾 الطلبات الواردة</h3><span class="pill p-orange">'+rows.filter(x=>x.status==='PENDING').length+' قيد المراجعة</span></div>'+rowsHtml(rows,true)+'</div>':'')+'<div class="card"><div class="sectionhead"><h3>📚 '+(sup?'سجل طلبات المشرف':'سجل طلباتي')+'</h3><button class="btn secondary small no-print" onclick="renderLeaveCenter()">↻ تحديث</button></div>'+rowsHtml(sup?rows.filter(x=>x.employee_id===me.id):rows,false)+'</div>';
+      if(sup&&$('leaveEmployee'))$('leaveEmployee').value=selected;
+      if(typeof loadLeaveEmployeeDefaults==='function')await loadLeaveEmployeeDefaults().catch(()=>{});
+    }catch(e){c.innerHTML='<div class="card"><div class="msg err">تعذر فتح نموذج الإجازة: '+escV38(e.message||e)+'</div></div>'}
+  };
+
+  window.saveLeaveRequestV38=async function(){
+    const id=me?.role==='SUPERVISOR'?$('leaveEmployee')?.value:me?.id,start=$('leaveStart')?.value,end=$('leaveEnd')?.value;
+    const days=typeof leaveDays==='function'?leaveDays(start,end):0;
+    if(!id||!start||!end||days<1){$('leaveMsg').innerHTML='<div class="msg err">اختر الموظف وتاريخ البداية والنهاية.</div>';return}
+    try{
+      const x={employee_no:$('leaveEmployeeNo')?.value||'',branch:$('leaveBranch')?.value||'فرع المدينة المنورة',position:$('leavePosition')?.value||'',department:$('leaveDepartment')?.value||'',request_date:$('leaveRequestDate')?.value||today(),last_vac_date:$('leaveLastDate')?.value||'',address:$('leaveAddress')?.value||'',manager:'مشرف الفرع',manager_decision:'PENDING',manager_note:'',salary_payment:'ADVANCE',accounting_note:'',hr_decision:'PENDING',reason:$('leaveReason')?.value||''};
+      await api('/rest/v1/leave_requests',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:id,leave_type:$('leaveType')?.value||'ANNUAL',start_date:start,end_date:end,days_count:days,reason:x.reason,employee_note:JSON.stringify(x),status:'PENDING',updated_at:new Date().toISOString()})});
+      $('leaveMsg').innerHTML='<div class="msg ok">✓ تم إرسال طلب الإجازة للمشرف.</div>';
+      await renderLeaveCenter();
+    }catch(e){$('leaveMsg').innerHTML='<div class="msg err">تعذر إرسال الطلب: '+escV38(e.message||e)+'</div>'}
+  };
+
+  /* مركز الطلبات والموافقات */
+  window.renderApprovalsCenterV38=async function(){
+    const c=$('content');if(!c)return;c.innerHTML='<div class="card"><div class="muted">جارٍ تحميل الطلبات والموافقات...</div></div>';
+    try{
+      const sup=me?.role==='SUPERVISOR';
+      const [l,i]=await Promise.all([
+        api('/rest/v1/leave_requests?select=*&'+(sup?'order=created_at.desc&limit=200':'employee_id=eq.'+encodeURIComponent(me.id)+'&order=created_at.desc&limit=100')),
+        api('/rest/v1/showroom_issue_requests?select=*&'+(sup?'order=created_at.desc&limit=200':'employee_id=eq.'+encodeURIComponent(me.id)+'&order=created_at.desc&limit=100'))
+      ]);
+      const lp=l.filter(x=>x.status==='PENDING').length,ip=i.filter(x=>x.status==='PENDING').length;
+      let html='<div class="card"><div class="sectionhead"><h3>🔔 الطلبات والموافقات</h3><span class="pill '+(lp+ip?'p-orange':'p-green')+'">'+(lp+ip?(lp+ip)+' طلب بانتظار الإجراء':'لا توجد طلبات معلقة')+'</span></div><div class="approvalSummary"><div class="box"><small>طلبات الإجازة</small><b>'+l.length+'</b></div><div class="box"><small>طلبات إخراج البضاعة</small><b>'+i.length+'</b></div><div class="box"><small>إجازات معلقة</small><b>'+lp+'</b></div><div class="box"><small>إخراج بضاعة معلق</small><b>'+ip+'</b></div></div><div class="actionRow"><button class="btn small" onclick="renderLeaveCenter()">📅 الإجازات</button><button class="btn secondary small" onclick="appNavigate(\'issue\')">📤 إخراج البضاعة</button></div></div>';
+      if(l.length){
+        html+='<div class="card"><div class="sectionhead"><h3>📅 طلبات الإجازة</h3></div>';
+        l.forEach(r=>{let x={};try{x=JSON.parse(r.employee_note||'{}')}catch(_){};const nm=x.employee_name||((window._employees||[]).find(e=>e.id===r.employee_id)?.name)||((r.employee_id===me?.id)?me.name:'—');html+='<div class="activity"><b>'+escV38(nm)+'</b> — '+escV38(leaveTypeV38(r.leave_type))+' — '+escV38(r.start_date)+' إلى '+escV38(r.end_date)+' <span class="pill '+leaveClassV38(r.status)+'">'+escV38(leaveStatusV38(r.status))+'</span><div class="actionRow" style="margin-top:8px"><button class="btn secondary small" onclick="printSavedLeave(\''+r.id+'\')">🖨️ النموذج</button>'+(sup&&r.status==='PENDING'?'<button class="btn small" onclick="decideLeave(\''+r.id+'\',\'APPROVED\')">✓ اعتماد</button><button class="btn danger small" onclick="decideLeave(\''+r.id+'\',\'REJECTED\')">✕ رفض</button>':'')+'</div></div>'});
+        html+='</div>';
+      }
+      if(i.length){
+        html+='<div class="card"><div class="sectionhead"><h3>📤 طلبات إخراج البضاعة</h3></div>';
+        i.forEach(r=>{html+='<div class="activity"><b>'+escV38(r.recipient||'—')+'</b> — '+escV38(r.tire_type||'')+' — '+escV38(r.size_model||'')+' × '+Number(r.quantity||0)+' <span class="pill '+issueClassV38(r)+'">'+escV38(issueLabelV38(r))+'</span><div class="muted">السبب: '+escV38(r.reason||'—')+'</div>'+(r.supervisor_note?'<div class="muted">ملاحظة المشرف: '+escV38(r.supervisor_note)+'</div>':'')+(sup&&r.status==='PENDING'?'<div class="actionRow" style="margin-top:8px"><button class="btn small" onclick="approveIssueRequestV38(\''+r.id+'\')">✓ موافقة وإخراج</button><button class="btn danger small" onclick="rejectIssueRequestV38(\''+r.id+'\')">✕ رفض</button></div>':'')+'</div>'});
+        html+='</div>';
+      }
+      c.innerHTML=html;
+    }catch(e){c.innerHTML='<div class="card"><div class="msg err">تعذر تحميل الطلبات والموافقات: '+escV38(e.message||e)+'</div></div>'}
+  };
+
+  /* إخراج البضاعة للمندوب: استخدام الجدول المخصص للطلبات، مع RLS صحيح. */
+  window.renderRepIssueRequests=async function(){
+    if(me?.role!=='FIELD_REP'){alert('هذه القائمة للمندوب فقط.');return}
+    setActiveNav('issue');const c=$('content');c.innerHTML='<div class="card"><div class="muted">جارٍ تحميل طلبات إخراج البضاعة...</div></div>';
+    try{
+      const [mine,inv]=await Promise.all([
+        api('/rest/v1/showroom_issue_requests?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&order=created_at.desc&limit=200'),
+        api('/rest/v1/showroom_inventory?select=id,product_name,size,tire_type,quantity,active&active=eq.true&quantity=gt.0&order=product_name.asc,size.asc')
+      ]);
+      window._repInvV38=inv;
+      const options=inv.map(r=>'<option value="'+r.id+'">'+escV38(r.product_name)+' — '+escV38(r.size)+' — '+escV38(r.tire_type||'')+' — متوفر '+Number(r.quantity||0)+'</option>').join('');
+      const cards=mine.map(r=>'<div class="issueCard"><div class="issueCardHead"><div><b>📤 '+escV38(issueLabelV38(r))+'</b><div class="muted">'+escV38(r.issue_date||'')+' — '+escV38(r.tire_type||'')+' — '+escV38(r.size_model||'')+'</div></div><span class="pill '+issueClassV38(r)+'">'+escV38(issueLabelV38(r))+'</span></div><div class="issueCardBody"><div class="issueMeta"><div class="box">الكمية<b>'+Number(r.quantity||0)+'</b></div><div class="box">السبب<b>'+escV38(r.reason||'—')+'</b></div><div class="box">المشرف<b>'+escV38(r.approved_by?'تمت المعالجة':'—')+'</b></div><div class="box">ملاحظة<b>'+escV38(r.supervisor_note||'—')+'</b></div></div></div></div>').join('')||'<div class="muted">لا توجد طلبات حتى الآن.</div>';
+      c.innerHTML='<div class="card"><div class="sectionhead"><h3>📤 طلب إخراج بضاعة من المعرض</h3><span class="pill p-blue">'+escV38(me.name)+'</span></div><div class="msg ok">لن يتم خصم المخزون إلا بعد موافقة المشرف.</div><div class="issueFormGrid"><div class="field full"><label>الصنف *</label><select id="repIssueInventoryV38"><option value="">اختر الصنف</option>'+options+'</select></div><div class="field"><label>نوع الكفر</label><input id="repIssueTypeV38" readonly></div><div class="field"><label>المقاس / الموديل</label><input id="repIssueSizeV38" readonly></div><div class="field"><label>الكمية المطلوبة *</label><input id="repIssueQtyV38" type="number" min="1" step="1" value="1"></div><div class="field"><label>سبب الإخراج *</label><input id="repIssueReasonV38" placeholder="طلب عميل / تجربة / استبدال"></div><div class="field full"><label>ملاحظات</label><textarea id="repIssueNotesV38" rows="2"></textarea></div></div><div class="actionRow no-print"><button class="btn" onclick="submitRepIssueRequestV38()">📨 إرسال للمشرف</button><button class="btn secondary" onclick="renderRepIssueRequests()">↻ تحديث</button></div><div id="repIssueMsgV38"></div></div><div class="card"><div class="sectionhead"><h3>📚 طلباتي</h3></div><div class="issueCards">'+cards+'</div></div>';
+      $('repIssueInventoryV38').onchange=function(){const r=(window._repInvV38||[]).find(x=>x.id===$('repIssueInventoryV38').value);if(r){$('repIssueTypeV38').value=r.tire_type||'';$('repIssueSizeV38').value=r.size||'';$('repIssueQtyV38').max=String(Number(r.quantity||0));}};
+    }catch(e){c.innerHTML='<div class="card"><div class="msg err">تعذر تحميل طلبات إخراج البضاعة: '+escV38(e.message||e)+'</div></div>'}
+  };
+  window.submitRepIssueRequestV38=async function(){
+    const id=$('repIssueInventoryV38')?.value,qty=Number($('repIssueQtyV38')?.value||0),reason=$('repIssueReasonV38')?.value.trim()||'',notes=$('repIssueNotesV38')?.value.trim()||'',inv=(window._repInvV38||[]).find(x=>x.id===id);
+    if(!id||!inv||qty<1||qty>Number(inv.quantity||0)||!reason){$('repIssueMsgV38').innerHTML='<div class="msg err">اختر الصنف والكمية الصحيحة واكتب سبب الإخراج.</div>';return}
+    try{await api('/rest/v1/showroom_issue_requests',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,inventory_id:id,issue_date:issueToday(),tire_type:inv.tire_type||'',size_model:inv.size||'',quantity:qty,reason,recipient:me.name,notes:notes||null,status:'PENDING',updated_at:new Date().toISOString()})});$('repIssueMsgV38').innerHTML='<div class="msg ok">✓ تم إرسال الطلب للمشرف. لم يتم خصم المخزون.</div>';await renderRepIssueRequests()}catch(e){$('repIssueMsgV38').innerHTML='<div class="msg err">تعذر إرسال الطلب: '+escV38(e.message||e)+'</div>'}
+  };
+  window.approveIssueRequestV38=async function(id){
+    if(me?.role!=='SUPERVISOR')return;if(!confirm('تأكيد الموافقة؟ سيتم خصم الكمية وإنشاء سجل إخراج باسم المندوب.'))return;
+    const note=prompt('ملاحظة اعتماد (اختياري):','');if(note===null)return;
+    try{await api('/rest/v1/rpc/approve_showroom_issue_request',{method:'POST',body:JSON.stringify({p_request_id:id,p_decision:'APPROVED',p_note:note||null})});await renderApprovalsCenterV38();alert('✓ تمت الموافقة والخصم وتسجيل الإخراج.')}catch(e){alert('تعذر اعتماد الطلب: '+(e.message||e))}
+  };
+  window.rejectIssueRequestV38=async function(id){
+    if(me?.role!=='SUPERVISOR')return;const note=prompt('سبب رفض الطلب (اختياري):','');if(note===null)return;
+    try{await api('/rest/v1/rpc/approve_showroom_issue_request',{method:'POST',body:JSON.stringify({p_request_id:id,p_decision:'REJECTED',p_note:note||null})});await renderApprovalsCenterV38();alert('✓ تم رفض الطلب وإبلاغ المندوب.')}catch(e){alert('تعذر رفض الطلب: '+(e.message||e))}
+  };
+
+  /* مخزون المعرض: البحث في الماركة والمقاس ونوع الكفر. */
+  window.renderInventory=async function(){
+    if(!hasPermission('inventory_view')){alert('لا تملك صلاحية الاطلاع على مخزون المعرض.');return}
+    const canEdit=me?.role==='SUPERVISOR',c=$('content');c.innerHTML='<div class="card"><div class="muted">جارٍ تحميل مخزون المعرض...</div></div>';
+    try{
+      const rows=await api('/rest/v1/showroom_inventory?select=*&order=active.desc,product_name.asc,size.asc');window._inventoryV38=rows;
+      const renderRows=function(list){return list.map(function(r,i){return '<tr><td>'+(i+1)+'</td><td><b>'+escV38(r.product_name)+'</b></td><td>'+escV38(r.size)+'</td><td>'+escV38(r.tire_type||'—')+'</td><td><b>'+Number(r.quantity||0)+'</b></td><td>'+(r.unit_price==null?'—':Number(r.unit_price).toFixed(2)+' ر.س')+'</td><td><span class="pill '+(r.active?'p-green':'p-red')+'">'+(r.active?'متاح':'موقوف')+'</span></td><td class="no-print">'+(canEdit?'<button class="btn small" '+(Number(r.quantity||0)<=0?'disabled':'')+' onclick="openIssueForInventory(\''+r.id+'\')">📤 إخراج</button><button class="btn secondary small" onclick="editInventoryItem(\''+r.id+'\')">✏️ تعديل</button><button class="btn danger small" onclick="deleteInventoryItem(\''+r.id+'\')">🗑️ حذف</button>':'—')+'</td></tr>'}).join('')||'<tr><td colspan="8">لا توجد نتائج مطابقة.</td></tr>'};
+      const draw=function(){const q=($('inventorySearchV38')?.value||'').trim().toLowerCase(),type=($('inventoryTypeV38')?.value||'').trim().toLowerCase(),brand=($('inventoryBrandV38')?.value||'').trim().toLowerCase();const f=rows.filter(r=>{const all=[r.product_name,r.size,r.tire_type,r.notes].map(v=>String(v||'').toLowerCase());return (!q||all.some(v=>v.includes(q)))&&(!type||String(r.tire_type||'').toLowerCase().includes(type))&&(!brand||String(r.product_name||'').toLowerCase().includes(brand))});$('inventoryResultsV38').innerHTML='<div class="tablewrap"><table class="inventoryTable"><thead><tr><th>م</th><th>المسمى</th><th>المقاس</th><th>نوع الكفر / النقشة</th><th>الكمية</th><th>السعر</th><th>الحالة</th><th class="no-print">إجراء</th></tr></thead><tbody>'+renderRows(f)+'</tbody></table></div>'};
+      c.innerHTML='<div class="card"><div class="sectionhead"><h3 class="iconTitle"><span class="ico">🏭</span> مخزون المعرض</h3><span class="pill '+(canEdit?'p-blue':'p-green')+'">'+(canEdit?'إدارة كاملة':'للاطلاع فقط')+'</span></div><div class="inventorySearchBar"><div class="field"><label>بحث عام</label><input id="inventorySearchV38" placeholder="الماركة أو المقاس أو نوع الكفر" oninput="filterInventoryV38()"></div><div class="field"><label>الماركة / الصنف</label><input id="inventoryBrandV38" placeholder="مثال: ADVANCE" oninput="filterInventoryV38()"></div><div class="field"><label>نوع الكفر / النقشة</label><input id="inventoryTypeV38" placeholder="مثال: حجري / شاحنة" oninput="filterInventoryV38()"></div></div><div class="msg ok">🔎 اكتب نوع الكفر مباشرة في خانة البحث، وستظهر الأصناف المطابقة فورًا.</div><div id="inventoryResultsV38"></div></div>';
+      window._drawInventoryV38=draw;draw();
+    }catch(e){c.innerHTML='<div class="card msg err">تعذر تحميل مخزون المعرض: '+escV38(e.message||e)+'</div>'}
+  };
+  window.filterInventoryV38=function(){if(window._drawInventoryV38)window._drawInventoryV38()};
+
+  /* زر موحد للمشرف والموظفين */
+  const nav=document.querySelector('.appNav');
+  if(nav&&!document.getElementById('approvalsNavV38')){
+    const b=document.createElement('button');b.id='approvalsNavV38';b.className='approvalsBadge';b.innerHTML='<span>🔔</span> الطلبات والموافقات';b.onclick=function(){setActiveNav('notifications');renderApprovalsCenterV38()};nav.insertBefore(b,nav.querySelector('button[onclick*="notifications"]')||nav.firstChild);
+  }
+  const oldNav=window.appNavigate;
+  window.appNavigate=async function(key){
+    if(key==='issue'){if(me?.role==='SUPERVISOR')return renderIssueForms();if(me?.role==='FIELD_REP')return renderRepIssueRequests();alert('هذه القائمة متاحة للمشرف والمناديب فقط.');return}
+    if(key==='notifications'&&document.getElementById('approvalsNavV38'))return renderApprovalsCenterV38();
+    return oldNav(key);
+  };
+  const oldApply=window.applyNavPermissions;
+  window.applyNavPermissions=function(){try{oldApply&&oldApply()}catch(_){};const b=document.getElementById('approvalsNavV38');if(b)b.style.display=(me?.role?'':'none')};
+  window.KAS_VERSION='A2-V38';
+})();
+</script>
+
 </body></html>
