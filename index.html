@@ -2609,5 +2609,144 @@ supervisorAttendanceAction=async function(employeeId,action){
   }
   setInterval(checkSupervisorEndNotice,1000); setTimeout(checkSupervisorEndNotice,500);
 })();
+
+/* A2_V37 — مندوب ↔ إخراج البضاعة + إصلاح مركز الإجازات */
+(function(){
+  const ISSUE_META='__A2_ISSUE_WORKFLOW__';
+  function parseIssueMeta(r){try{const n=JSON.parse(r?.notes||'{}');return n&&n[ISSUE_META]?n:null}catch(_){return null}}
+  function issueStatus(r){const m=parseIssueMeta(r);return m?.status||'APPROVED'}
+  function issueStatusLabel(r){return {PENDING:'قيد موافقة المشرف',APPROVED:'تمت الموافقة والإخراج',REJECTED:'مرفوض',CANCELLED:'ملغى'}[issueStatus(r)]||'تم الإخراج'}
+  function issueStatusClass(r){return {PENDING:'p-orange',APPROVED:'p-green',REJECTED:'p-red',CANCELLED:'p-purple'}[issueStatus(r)]||'p-blue'}
+  window.parseIssueMeta=parseIssueMeta;
+
+  /* صلاحيات الإخراج: المندوب يطلب، المشرف يعتمد/يرفض. */
+  const _applyNavPermissionsA2=window.applyNavPermissions;
+  window.applyNavPermissions=function(){
+    try{_applyNavPermissionsA2&&_applyNavPermissionsA2();}catch(_){}
+    const b=[...document.querySelectorAll('.appNav button')].find(x=>(x.getAttribute('onclick')||'').includes("appNavigate('issue')"));
+    if(b){ b.style.display=(me?.role==='FIELD_REP'||me?.role==='SUPERVISOR')?'':'none'; b.innerHTML='<span>📤</span> '+(me?.role==='SUPERVISOR'?'إخراج بضاعة':'طلب إخراج بضاعة'); }
+  };
+
+  const _appNavigateA2=window.appNavigate;
+  window.appNavigate=async function(key){
+    if(key==='issue'){
+      if(me?.role==='SUPERVISOR') return renderIssueForms();
+      if(me?.role==='FIELD_REP') return renderRepIssueRequests();
+      alert('لا تملك صلاحية إخراج البضاعة.'); return;
+    }
+    return _appNavigateA2(key);
+  };
+
+  window.renderRepIssueRequests=async function(){
+    if(me?.role!=='FIELD_REP'){alert('هذه القائمة للمندوب فقط.');return;}
+    setActiveNav('issue');
+    $('content').innerHTML='<div class="card"><div class="muted">جارٍ تحميل طلبات إخراج البضاعة...</div></div>';
+    try{
+      const rows=await api('/rest/v1/showroom_issue_forms?select=*&order=created_at.desc&limit=500');
+      const mine=rows.filter(r=>r.recipient===me.name || r.created_by===me.id || parseIssueMeta(r)?.requested_by===me.id);
+      const inventory=await inventoryOptions();
+      $('content').innerHTML=`
+      <div class="card">
+        <div class="sectionhead"><h3>📤 طلب إخراج بضاعة</h3><span class="pill p-blue">المندوب: ${esc(me.name)}</span></div>
+        <div class="msg ok">اختر الصنف والكمية وأرسل الطلب. لن يتم خصم الكمية من مخزون المعرض إلا بعد موافقة المشرف.</div>
+        <div class="issueFormGrid">
+          <div class="field full"><label>الصنف من مخزون المعرض *</label><select id="repIssueInventory" onchange="fillRepIssueInventory()"><option value="">اختر الصنف</option>${inventory.map(r=>`<option value="${r.id}">${esc(r.product_name)} — ${esc(r.size)} — ${esc(r.tire_type||'')} — متوفر ${Number(r.quantity||0)}</option>`).join('')}</select></div>
+          <div class="field"><label>نوع الكفر</label><input id="repIssueType" readonly></div>
+          <div class="field"><label>المقاس / الموديل</label><input id="repIssueSize" readonly></div>
+          <div class="field"><label>الكمية المطلوبة *</label><input id="repIssueQty" type="number" min="1" step="1" value="1"></div>
+          <div class="field"><label>سبب الإخراج *</label><input id="repIssueReason" placeholder="مثال: طلب عميل / تجربة / استبدال"></div>
+          <div class="field full"><label>ملاحظات</label><textarea id="repIssueNotes" rows="2" placeholder="أي تفاصيل إضافية للمشرف"></textarea></div>
+        </div>
+        <div class="actionRow no-print" style="margin-top:12px"><button class="btn" onclick="submitRepIssueRequest()">📨 إرسال للمشرف</button><button class="btn secondary" onclick="renderRepIssueRequests()">↻ تحديث</button></div><div id="repIssueMsg"></div>
+      </div>
+      <div class="card"><div class="sectionhead"><h3>📚 طلباتي وإخراجاتي</h3></div><div class="issueCards">${mine.map(x=>{const m=parseIssueMeta(x);return `<div class="issueCard"><div class="issueCardHead"><div><b>📤 ${issueStatusLabel(x)}</b><div class="muted">${esc(x.issue_date||'')} — ${esc(x.tire_type||'')} — ${esc(x.size_model||'')}</div></div><span class="pill ${issueStatusClass(x)}">${issueStatusLabel(x)}</span></div><div class="issueCardBody"><div class="issueMeta"><div class="box">الكمية<b>${Number(x.quantity||0)}</b></div><div class="box">السبب<b>${esc(x.reason||'—')}</b></div><div class="box">المشرف<b>${esc(x.supervisor_name||'—')}</b></div><div class="box">الحالة<b>${esc(m?.supervisor_note||'')}</b></div></div><div class="actionRow no-print" style="margin-top:10px"><button class="btn secondary small" onclick="printIssueFormAny('${x.id}')">🖨️ طباعة</button></div></div></div>`}).join('')||'<div class="muted">لا توجد طلبات حتى الآن.</div>'}</div></div>`;
+    }catch(e){$('content').innerHTML='<div class="card"><div class="msg err">تعذر تحميل طلبات إخراج البضاعة: '+esc(e.message||e)+'</div></div>'}
+  };
+  window.fillRepIssueInventory=async function(){const id=$('repIssueInventory')?.value;if(!id)return;try{const r=(await api('/rest/v1/showroom_inventory?select=*&id=eq.'+encodeURIComponent(id)))[0];if(!r)return;$('repIssueType').value=r.tire_type||'';$('repIssueSize').value=r.size||'';$('repIssueQty').max=String(Number(r.quantity||0));}catch(e){alert('تعذر تحميل الصنف: '+e.message)}};
+  window.submitRepIssueRequest=async function(){
+    const inventoryId=$('repIssueInventory')?.value, qty=Number($('repIssueQty')?.value||0), reason=$('repIssueReason')?.value.trim()||'', notes=$('repIssueNotes')?.value.trim()||'';
+    if(!inventoryId||qty<1||!reason){$('repIssueMsg').innerHTML='<div class="msg err">اختر الصنف والكمية واكتب سبب الإخراج.</div>';return}
+    try{
+      const inv=(await api('/rest/v1/showroom_inventory?select=*&id=eq.'+encodeURIComponent(inventoryId)))[0];
+      if(!inv)throw Error('الصنف غير موجود في مخزون المعرض.');
+      if(qty>Number(inv.quantity||0))throw Error('الكمية المطلوبة أكبر من المتوفر حاليًا.');
+      const meta={[ISSUE_META]:{status:'PENDING',requested_by:me.id,requested_by_name:me.name,requested_at:new Date().toISOString(),supervisor_note:'بانتظار موافقة المشرف'}};
+      const payload={issue_date:issueToday(),tire_type:inv.tire_type||'',size_model:inv.size||'',quantity:qty,reason,recipient:me.name,supervisor_name:null,notes:JSON.stringify({...meta,user_notes:notes}),inventory_id:inventoryId,created_by:me.id};
+      await api('/rest/v1/showroom_issue_forms',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)});
+      $('repIssueMsg').innerHTML='<div class="msg ok">✓ تم إرسال الطلب للمشرف. لم يتم خصم الكمية حتى الآن.</div>';await renderRepIssueRequests();
+    }catch(e){$('repIssueMsg').innerHTML='<div class="msg err">تعذر إرسال الطلب: '+esc(e.message||e)+'</div>'}
+  };
+
+  /* نسخة المشرف: تعرض الطلبات المعلقة أولًا مع اعتماد/رفض واضحين. */
+  const _renderIssueFormsA2=window.renderIssueForms;
+  window.renderIssueForms=async function(){
+    await _renderIssueFormsA2();
+    try{
+      const rows=await api('/rest/v1/showroom_issue_forms?select=*&order=created_at.desc&limit=500');
+      const pending=rows.filter(r=>issueStatus(r)==='PENDING');
+      const c=$('content'); if(!c)return;
+      const card=document.createElement('div');card.className='card issueApprovalPanel';
+      card.innerHTML='<div class="sectionhead"><h3>📨 طلبات إخراج البضاعة الواردة</h3><span class="pill p-orange">'+pending.length+' بانتظار القرار</span></div>'+(pending.map(r=>{const m=parseIssueMeta(r)||{};return `<div class="issueCard"><div class="issueCardHead"><div><b>طلب من المندوب: ${esc(r.recipient||m.requested_by_name||'—')}</b><div class="muted">${esc(r.issue_date||'')} — ${esc(r.tire_type||'')} — ${esc(r.size_model||'')}</div></div><span class="pill p-orange">قيد الموافقة</span></div><div class="issueCardBody"><div class="issueMeta"><div class="box">الكمية المطلوبة<b>${Number(r.quantity||0)}</b></div><div class="box">سبب الإخراج<b>${esc(r.reason||'—')}</b></div><div class="box">الصنف<b>${esc(r.size_model||'—')}</b></div><div class="box">ملاحظات المندوب<b>${esc(m.user_notes||'—')}</b></div></div><div class="actionRow no-print" style="margin-top:10px"><button class="btn small" onclick="approveRepIssueRequest('${r.id}')">✓ موافقة وإخراج</button><button class="btn danger small" onclick="rejectRepIssueRequest('${r.id}')">✕ رفض الطلب</button><button class="btn secondary small" onclick="printIssueFormAny('${r.id}')">🖨️ طباعة الطلب</button></div></div></div>`}).join('')||'<div class="msg ok">✓ لا توجد طلبات إخراج معلقة.</div>');
+      c.insertBefore(card,c.firstChild);
+    }catch(e){console.warn('تعذر تحميل طلبات الإخراج',e)}
+  };
+  window.approveRepIssueRequest=async function(id){
+    if(me?.role!=='SUPERVISOR')return;
+    if(!confirm('تأكيد الموافقة؟ سيتم خصم الكمية من مخزون المعرض وتسجيل الإخراج باسم المندوب.'))return;
+    try{
+      const r=(await api('/rest/v1/showroom_issue_forms?select=*&id=eq.'+encodeURIComponent(id)))[0];if(!r)throw Error('الطلب غير موجود.');
+      if(issueStatus(r)!=='PENDING'){alert('هذا الطلب تمت معالجته مسبقًا.');return}
+      const m=parseIssueMeta(r)||{};
+      const inv=(await api('/rest/v1/showroom_inventory?select=*&id=eq.'+encodeURIComponent(r.inventory_id||'')))[0];
+      if(!inv)throw Error('الصنف لم يعد موجودًا في المخزون.');
+      if(Number(r.quantity||0)>Number(inv.quantity||0))throw Error('الكمية المطلوبة لم تعد متوفرة في المخزون.');
+      await api('/rest/v1/rpc/supervisor_create_issue_from_inventory',{method:'POST',body:JSON.stringify({p_issue_date:r.issue_date||issueToday(),p_tire_type:r.tire_type||inv.tire_type||'',p_size_model:r.size_model||inv.size||'',p_qty:Number(r.quantity||0),p_reason:r.reason||'',p_recipient:r.recipient||m.requested_by_name||'',p_supervisor_name:me.name,p_notes:JSON.stringify({...m,status:'APPROVED',approved_by:me.id,approved_by_name:me.name,approved_at:new Date().toISOString(),user_notes:m.user_notes||''}),p_inventory_id:r.inventory_id,p_created_by:me.id})});
+      try{await api('/rest/v1/showroom_issue_forms?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{Prefer:'return=minimal'}})}catch(e){console.warn('تعذر حذف الطلب المعلق بعد تسجيل الإخراج',e)}
+      await renderIssueForms();alert('✓ تمت الموافقة وخصم الكمية وتسجيل الإخراج باسم المندوب.');
+    }catch(e){alert('تعذر اعتماد الطلب: '+(e.message||e))}
+  };
+  window.rejectRepIssueRequest=async function(id){
+    if(me?.role!=='SUPERVISOR')return;const note=prompt('سبب رفض الطلب (اختياري):','');if(note===null)return;
+    try{const r=(await api('/rest/v1/showroom_issue_forms?select=*&id=eq.'+encodeURIComponent(id)))[0];if(!r)return;const m=parseIssueMeta(r)||{};await api('/rest/v1/showroom_issue_forms?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({notes:JSON.stringify({...m,status:'REJECTED',rejected_by:me.id,rejected_by_name:me.name,rejected_at:new Date().toISOString(),supervisor_note:note||'تم رفض الطلب'})})});await renderIssueForms();}catch(e){alert('تعذر رفض الطلب: '+(e.message||e))}
+  };
+  window.printIssueFormAny=async function(id){
+    if(me?.role==='SUPERVISOR')return printIssueForm(id);
+    try{const r=(await api('/rest/v1/showroom_issue_forms?select=*&id=eq.'+encodeURIComponent(id)))[0];if(!r)return;const w=openPrintWindow();if(!w)return;const logo=document.querySelector('.brandLogo')?.src||'';const html=`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>طلب إخراج بضاعة</title><style>body{font-family:Tahoma,Arial;padding:25px}.sheet{border:2px solid #111;padding:25px}.head{display:flex;justify-content:space-between}.title{text-align:center;font-size:24px;font-weight:900;margin:25px}.tbl{width:100%;border-collapse:collapse}.tbl td{border:1px solid #222;padding:12px}.tbl td:first-child{font-weight:800;background:#f3f6f8;width:35%}</style></head><body><div class="sheet"><div class="head"><div>KHALID ABDULLAH AL-SAFI CO.<br>KAS TIRES — MEDINA BRANCH</div>${logo?`<img src="${logo}" style="width:100px;height:70px;object-fit:contain">`:''}<div>شركة خالد عبدالله الصافي<br>فرع المدينة المنورة</div></div><div class="title">طلب إخراج بضاعة</div><table class="tbl"><tr><td>المندوب</td><td>${esc(r.recipient||'')}</td></tr><tr><td>التاريخ</td><td>${esc(r.issue_date||'')}</td></tr><tr><td>نوع الكفر</td><td>${esc(r.tire_type||'')}</td></tr><tr><td>المقاس / الموديل</td><td>${esc(r.size_model||'')}</td></tr><tr><td>الكمية</td><td>${Number(r.quantity||0)}</td></tr><tr><td>السبب</td><td>${esc(r.reason||'')}</td></tr><tr><td>الحالة</td><td>${esc(issueStatusLabel(r))}</td></tr></table></div></body></html>`;writePrintWindow(w,html);
+    }catch(e){alert('تعذر طباعة الطلب: '+e.message)}
+  };
+
+  /* إصلاح نموذج الإجازة: فتحه للجميع، وإضافة اعتماد المشرف الفعلي، وتحسين الطباعة/الحفظ PDF عبر نافذة واحدة. */
+  const _renderLeaveCenterA2=window.renderLeaveCenter;
+  window.renderLeaveCenter=async function(){
+    try{await _renderLeaveCenterA2();}catch(e){
+      try{await renderLeaveCenterBase();}catch(_){throw e}
+    }
+    try{
+      document.querySelectorAll('.leaveRequestCard').forEach(card=>{
+        const printBtn=card.querySelector('button[onclick*="printSavedLeave"]');
+        if(printBtn&&!card.querySelector('.downloadLeaveBtn')){
+          const id=(printBtn.getAttribute('onclick')||'').match(/printSavedLeave\('([^']+)'\)/)?.[1];
+          if(id){const b=document.createElement('button');b.className='btn secondary small downloadLeaveBtn';b.textContent='⬇️ فتح/حفظ PDF';b.onclick=()=>downloadLeavePdf(id);printBtn.parentElement.appendChild(b)}
+        }
+      });
+    }catch(_){ }
+  };
+  window.decideLeave=async function(id,decision){
+    if(!['SUPERVISOR'].includes(me?.role)){alert('اعتماد الإجازة متاح للمشرف فقط.');return}
+    const note=prompt(decision==='APPROVED'?'ملاحظة اعتماد الإجازة (اختياري):':'سبب رفض الإجازة (اختياري):','');if(note===null)return;
+    try{
+      const r=(await api('/rest/v1/leave_requests?select=*&id=eq.'+encodeURIComponent(id)))[0];if(!r)throw Error('الطلب غير موجود.');
+      let x={};try{x=JSON.parse(r.employee_note||'{}')}catch(_){x={}};
+      const patch={status:decision,supervisor_note:note||null,updated_at:new Date().toISOString(),employee_note:JSON.stringify({...x,manager:'مشرف الفرع',manager_decision:decision,manager_note:note||'',approved_by:me.id,approved_by_name:me.name,approved_at:new Date().toISOString()})};
+      await api('/rest/v1/leave_requests?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});
+      await renderLeaveCenter();
+    }catch(e){alert('تعذر تحديث حالة الإجازة: '+(e.message||e))}
+  };
+  window.downloadLeavePdf=async function(id){
+    try{const r=(await api('/rest/v1/leave_requests?select=*&id=eq.'+encodeURIComponent(id)))[0];if(!r)throw Error('الطلب غير موجود.');let x={};try{x=JSON.parse(r.employee_note||'{}')}catch(_){};const e=(await api('/rest/v1/employees?select=id,name,role,phone,employee_no,employee_number,username&id=eq.'+encodeURIComponent(r.employee_id)))[0]||{};const d={...x,employee_name:e.name||x.employee_name||'—',employee_no:x.employee_no||e.employee_no||e.employee_number||e.username||'',position:x.position||roleName(e.role),start_date:r.start_date,end_date:r.end_date,days_count:r.days_count,leave_type:r.leave_type,reason:r.reason,status:r.status};printLeaveHtml(leavePrintHtml(d,false));}catch(e){alert('تعذر فتح نموذج الإجازة: '+(e.message||e))}
+  };
+  window.printLeaveBlank=window.printLeaveBlank||function(){printLeaveHtml(leavePrintHtml({},true));};
+  window.printLeaveDraft=window.printLeaveDraft||function(){printLeaveHtml(leavePrintHtml(leavePrintDataFromForm(),false));};
+})();
 </script>
 </body></html>
