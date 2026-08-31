@@ -953,7 +953,7 @@ function attendanceModeFromActivities(acts,a){const x=acts.find(z=>a?.id&&z.atte
 function shiftEndDate(){return new Date(today()+'T'+SHIFT_END+':00+03:00')}function dayEndDate(){return new Date(today()+'T23:59:59.999+03:00')}function shiftStartDate(){return new Date(today()+'T'+SHIFT_START+':00+03:00')}function autoCloseDate(e=me){return shiftEndDate()}function afterShift(e=me){return new Date()>=autoCloseDate(e)}function shiftMessage(){return '<div class="msg err">🔒 انتهى وقت الدوام اليوم الساعة '+SHIFT_END+'.</div>'}function guardAfterShift(){if(afterShift()){alert(me?.role==='FIELD_REP'?'انتهى اليوم، وتم إغلاق عداد الدوام اليومي.':'انتهى وقت الدوام اليوم الساعة '+SHIFT_END+'.');return true}return false}
 async function login(){const username=$('username').value.trim().toLowerCase(),password=$('password').value;if(!username||!password){showLogin('أدخل اسم المستخدم وكلمة المرور.');return}const b=$('loginBtn');b.disabled=true;b.textContent='جارٍ الدخول...';try{const r=await fetch(SB_URL+'/functions/v1/ensure-username-login',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({username,code:password})});const info=await r.json();if(!r.ok)throw Error(info.error||'اسم المستخدم أو كلمة المرور غير صحيحة');const email=info.email||username+'@attendance.local';let d=await api('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password}),auth:false});save(d);await boot(d.user)}catch(e){showLogin('فشل تسجيل الدخول: '+e.message)}finally{b.disabled=false;b.textContent='دخول النظام'}}
 function showLogin(t,ok=false){$('loginMsg').className='msg '+(ok?'ok':'err');$('loginMsg').textContent=t}
-async function boot(user){try{let rows=await api('/rest/v1/employees?select=*&auth_user_id=eq.'+encodeURIComponent(user.id));if(!rows.length){showLogin('تم الدخول لكن الحساب غير مربوط بموظف.');logout();return}me=rows[0];const existingLogo=document.querySelector('.brandLogo');const loginLogo=document.querySelector('.loginLogo');if(existingLogo&&loginLogo)loginLogo.src=existingLogo.src;await loadShiftSettings();$('loginCard').classList.add('hidden');$('app').classList.remove('hidden');$('userName').textContent=me.name;$('userRole').textContent=roleName(me.role);$('avatar').textContent=(me.name||'?').trim().charAt(0);const custodyNav=$('custodyNav');if(custodyNav)custodyNav.style.display=me.role==='SUPERVISOR'?'':'none';const issueNav=$('issueNav');if(issueNav)issueNav.style.display=me.role==='SUPERVISOR'?'':'none';const inventoryNav=$('inventoryNav');if(inventoryNav)inventoryNav.style.display=me.role==='SUPERVISOR'?'':'none';const requestsNav=$('requestsNav');if(requestsNav)requestsNav.style.display=me.role==='SUPERVISOR'?'':'none';applyNavPermissions();if(me.role==='SUPERVISOR'){await autoClose();await renderSupervisor()}else if(me.role==='GOVERNMENT_REP')await renderGov();else await renderField()}catch(e){showLogin('تعذر تحميل النظام: '+e.message)}}
+async function boot(user){try{let rows=await api('/rest/v1/employees?select=*&auth_user_id=eq.'+encodeURIComponent(user.id));if(!rows.length){showLogin('تم الدخول لكن الحساب غير مربوط بموظف.');logout();return}me=rows[0];const existingLogo=document.querySelector('.brandLogo');const loginLogo=document.querySelector('.loginLogo');if(existingLogo&&loginLogo)loginLogo.src=existingLogo.src;await loadShiftSettings();$('loginCard').classList.add('hidden');$('app').classList.remove('hidden');$('userName').textContent=me.name;$('userRole').textContent=roleName(me.role);$('avatar').textContent=(me.name||'?').trim().charAt(0);const custodyNav=$('custodyNav');if(custodyNav)custodyNav.style.display=me.role==='SUPERVISOR'?'':'none';const issueNav=$('issueNav');if(issueNav)issueNav.style.display=(me.role==='SUPERVISOR'||me.role==='FIELD_REP')?'':'none';const inventoryNav=$('inventoryNav');if(inventoryNav)inventoryNav.style.display=me.role==='SUPERVISOR'?'':'none';const requestsNav=$('requestsNav');if(requestsNav)requestsNav.style.display=me.role==='SUPERVISOR'?'':'none';applyNavPermissions();if(me.role==='SUPERVISOR'){await autoClose();await renderSupervisor()}else if(me.role==='GOVERNMENT_REP')await renderGov();else await renderField()}catch(e){showLogin('تعذر تحميل النظام: '+e.message)}}
 $('loginBtn').onclick=e=>{e.preventDefault();login()};$('password').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();login()}};$('username').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();login()}};$('logout').onclick=logout;
 async function gps(){if(!navigator.geolocation)throw Error('المتصفح لا يدعم تحديد الموقع');return new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(p=>ok(p.coords),()=>no(Error('اسمح بالوصول للموقع ثم حاول مرة أخرى')),{enableHighAccuracy:true,timeout:15000,maximumAge:0}))}
 function attendanceConfirmation(c,now){
@@ -1299,7 +1299,7 @@ function renderNotificationsCenter(){
   }).catch(e=>$('content').innerHTML='<div class="card msg err">'+esc(e.message)+'</div>');
 }
 function permissionDefs(){return [['reports','التقارير'],['pricing','التسعير'],['inventory_view','الاطلاع على مخزون المعرض'],['unbilled','البضاعة غير المفوترة'],['customers','العملاء'],['cash_journal','يومية الصندوق'],['notifications','التنبيهات'],['attendance_manage','إدارة الحضور'],['government','المهام الحكومية'],['custody','صرف العهدة'],['issue','إخراج البضاعة']];}
-function defaultPermissionsForRole(role){const p={dashboard:true,reports:false,pricing:false,unbilled:false,customers:false,cash_journal:false,notifications:false,attendance_manage:false,employee_manage:false,government:false,custody:false,issue:false,inventory_view:false};if(role==='SUPERVISOR')Object.keys(p).forEach(k=>p[k]=true);if(role==='FIELD_REP'){p.pricing=true;p.inventory_view=true;p.unbilled=true;p.reports=true;p.customers=true;p.cash_journal=true}if(role==='GOVERNMENT_REP')p.government=true;return p}
+function defaultPermissionsForRole(role){const p={dashboard:true,reports:false,pricing:false,unbilled:false,customers:false,cash_journal:false,notifications:false,attendance_manage:false,employee_manage:false,government:false,custody:false,issue:false,inventory_view:false};if(role==='SUPERVISOR')Object.keys(p).forEach(k=>p[k]=true);if(role==='FIELD_REP'){p.pricing=true;p.inventory_view=true;p.unbilled=true;p.reports=true;p.customers=true;p.cash_journal=true;p.issue=true}if(role==='GOVERNMENT_REP')p.government=true;return p}
 async function renderEmployeeAdmin(){
   if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
   try{
@@ -2637,7 +2637,7 @@ supervisorAttendanceAction=async function(employeeId,action){
    if(key==='dashboard')show=true;
    else if(key==='fieldhours')show=role==='SUPERVISOR'||role==='FIELD_REP';
    else if(key==='leave')show=hasPermission('leave');
-   else if(key==='issue')show=(role==='SUPERVISOR')||(role==='FIELD_REP'&&hasPermission('issue'));
+   else if(key==='issue')show=(role==='SUPERVISOR'||role==='FIELD_REP');
    else if(key==='inventory')show=hasPermission('inventory_view')||hasPermission('inventory');
    else if(key==='employees'||key==='requests'||key==='settings'||key==='notifications'||key==='custody')show=role==='SUPERVISOR';
    else show=hasPermission(permission[key]||key);
@@ -2652,7 +2652,7 @@ supervisorAttendanceAction=async function(employeeId,action){
   if(!me)return;
   if(key==='issue'){
    if(me.role==='SUPERVISOR')return renderIssueForms();
-   if(me.role==='FIELD_REP'&&hasPermission('issue'))return renderRepIssueRequests();
+   if(me.role==='FIELD_REP')return renderRepIssueRequests();
    alert('لا تملك صلاحية طلب إخراج البضاعة.');return;
   }
   if(key==='requests'){
@@ -2665,7 +2665,7 @@ supervisorAttendanceAction=async function(employeeId,action){
  };
 
  window.renderRepIssueRequests=async function(){
-  if(me?.role!=='FIELD_REP'||!hasPermission('issue')){alert('لا تملك صلاحية طلب إخراج البضاعة.');return;}
+  if(me?.role!=='FIELD_REP'){alert('لا تملك صلاحية طلب إخراج البضاعة.');return;}
   setActiveNav('issue'); $('content').innerHTML='<div class="card"><div class="muted">جارٍ تحميل طلب إخراج البضاعة...</div></div>';
   try{
    const [rows,inventory]=await Promise.all([api('/rest/v1/showroom_issue_forms?select=*&order=created_at.desc&limit=500'),inventoryOptions()]);
@@ -2682,7 +2682,7 @@ supervisorAttendanceAction=async function(employeeId,action){
  };
  window.fillRepIssueInventory=async function(){const id=$('repIssueInventory')?.value;if(!id)return;try{const r=(await api('/rest/v1/showroom_inventory?select=*&id=eq.'+encodeURIComponent(id)))[0];if(!r)return;$('repIssueType').value=r.tire_type||'';$('repIssueSize').value=r.size||'';$('repIssueQty').max=String(Number(r.quantity||0));$('repIssueQty').value=Math.min(Number($('repIssueQty').value||1),Number(r.quantity||0)||1)}catch(e){alert('تعذر تحميل الصنف: '+(e.message||e))}};
  window.submitRepIssueRequest=async function(){
-  if(me?.role!=='FIELD_REP'||!hasPermission('issue'))return alert('لا تملك صلاحية طلب إخراج البضاعة.');
+  if(me?.role!=='FIELD_REP')return alert('لا تملك صلاحية طلب إخراج البضاعة.');
   const inventoryId=$('repIssueInventory')?.value,qty=Number($('repIssueQty')?.value||0),reason=$('repIssueReason')?.value.trim()||'',notes=$('repIssueNotes')?.value.trim()||'',max=Number($('repIssueQty')?.max||0),btn=$('repIssueSendBtn');
   if(!inventoryId||qty<1||!reason){$('repIssueMsg').innerHTML='<div class="msg err">اختر الصنف والكمية واكتب سبب الإخراج.</div>';return}
   if(max>0&&qty>max){$('repIssueMsg').innerHTML='<div class="msg err">الكمية المطلوبة أكبر من المتوفر.</div>';return}
