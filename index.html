@@ -2796,4 +2796,216 @@ supervisorAttendanceAction=async function(employeeId,action){
   document.addEventListener('DOMContentLoaded',addNav41);setTimeout(addNav41,1000);
 })();
 </script>
+
+<style id="A2V43SupervisorEmployeeLayout">
+/* A2 V43 — فصل لوحة المشرف وتبسيط لوحات الموظفين */
+.employeeHomeGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.employeeHomeBtn{border:1px solid #d8e3ec;background:linear-gradient(180deg,#fff,#f6f9fc);border-radius:16px;padding:18px;text-align:right;color:#08284a;box-shadow:0 7px 20px rgba(8,40,74,.07);font-weight:900;cursor:pointer}.employeeHomeBtn:hover{transform:translateY(-2px)}.employeeHomeBtn .ehi{font-size:28px;display:block;margin-bottom:7px}.employeeHomeBtn small{display:block;color:#64748b;font-weight:600;margin-top:4px;line-height:1.5}.attendanceModeGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.attendanceModeBtn{min-height:72px;border:1px solid #d7e2eb;border-radius:14px;background:#fff;font-weight:900;color:#123f70;padding:12px;text-align:right}.attendanceModeBtn small{display:block;color:#718096;font-size:10px;margin-top:4px}.pauseBtn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.resumeBtn{background:#ecfdf3;border-color:#bbf7d0;color:#166534}.outsideBtn{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}.branchBtn{background:#f7fafc}.employeeMiniStats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.employeeMiniStats .stat{min-height:80px}.employeeMapNote{padding:10px 12px;border-radius:11px;background:#f8fafc;border:1px solid #e2e8f0;font-size:12px;line-height:1.7}.requestTabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.requestTabs .btn{width:auto}.supervisorDashboardHero{border:1px solid rgba(242,195,0,.25);background:linear-gradient(135deg,#04192c,#0d477d);color:#fff;border-radius:18px;padding:20px;box-shadow:0 12px 30px rgba(4,25,44,.16)}.supervisorDashboardHero h2{margin:0 0 5px;font-size:23px}.supervisorDashboardHero p{margin:0;color:#dbeafe;font-size:12px}.supervisorQuickGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}.supervisorQuickGrid .quickBtn{min-height:94px}
+@media(max-width:700px){.employeeHomeGrid,.attendanceModeGrid{grid-template-columns:1fr}.employeeMiniStats{grid-template-columns:1fr 1fr}.supervisorQuickGrid{grid-template-columns:1fr 1fr}}
+</style>
+<script>
+/* A2 V43 — سياسة الحضور والموقع لجميع الموظفين */
+(function(){
+ const PAUSE_START='WORK_PAUSE_START|';
+ const PAUSE_END='WORK_PAUSE_END|';
+ const MODE_PREFIX='ATTENDANCE_MODE:';
+ const REASONS={
+   CUSTOMER:'زيارة عميل',
+   GOVERNMENT:'مراجعة دوائر حكومية',
+   COLLECTION:'تحصيل',
+   WAREHOUSE:'زيارة المستودع',
+   OTHER:'مهمة خارج المعرض'
+ };
+ window.A2V43_REASONS=REASONS;
+
+ function esc43(v){return typeof esc==='function'?esc(v??''):String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+ function modeLabel43(mode){return mode==='BRANCH'?'🏢 تحضير في المعرض':'📍 تحضير خارج المعرض'}
+ function outsideReason43(reason){return REASONS[reason]||reason||''}
+
+ /* إيقاف العداد واستئنافه: تُسجل كجلسات توقف داخل activities، وتُخصم من إجمالي الساعات. */
+ window.a2v43PauseState=async function(){
+   if(!me)return {paused:false};
+   const rows=await api('/rest/v1/activities?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&order=created_at.asc&limit=500');
+   let paused=false,start=null;
+   for(const x of rows){const n=String(x.note||'');if(n.startsWith(PAUSE_START)){if(!paused){paused=true;start=x}}else if(n.startsWith(PAUSE_END)){if(paused){paused=false;start=null}}}
+   return {paused,start,rows};
+ };
+ window.a2v43WorkTotals=async function(){
+   const d=today();
+   const aRows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&work_date=eq.'+d);
+   const a=aRows[0]||null;
+   const acts=(await api('/rest/v1/activities?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&order=created_at.asc&limit=500')).filter(x=>String(x.created_at||'').slice(0,10)===d);
+   if(!a?.check_in)return {ms:0,paused:false,branchMs:0,fieldMs:0,attendance:a,acts};
+   const start=new Date(a.check_in).getTime();
+   const end=Math.min(a.check_out?new Date(a.check_out).getTime():Date.now(),dayEndDate().getTime());
+   let gross=Math.max(0,end-start),pausedMs=0,pauseStart=null,branchMs=0,fieldMs=0;
+   for(const x of acts){
+     const n=String(x.note||'');
+     if(n.startsWith(PAUSE_START)){pauseStart=new Date(x.created_at).getTime();continue}
+     if(n.startsWith(PAUSE_END)&&pauseStart!=null){pausedMs+=Math.max(0,Math.min(end,new Date(x.created_at).getTime())-pauseStart);pauseStart=null;continue}
+     if(n.startsWith(MODE_PREFIX+'FIELD|')) fieldMs+=0;
+   }
+   if(pauseStart!=null)pausedMs+=Math.max(0,end-pauseStart);
+   /* حافظ على قاعدة الاستراحة الرسمية 12–13 للموظفين غير المندوبين كما هي. */
+   let officialBreak=typeof isNoBreakEmployee==='function'&&isNoBreakEmployee(me)?0:(typeof breakMsBetween==='function'?breakMsBetween(new Date(start),new Date(end)):0);
+   let ms=Math.max(0,gross-pausedMs-officialBreak);
+   ms=Math.min(8*3600000,ms);
+   return {ms,paused:pauseStart!=null,pausedMs,branchMs,fieldMs,attendance:a,acts};
+ };
+
+ async function chooseOutsideReason43(){
+   return new Promise(resolve=>{
+     const m=$('confirmModal'); if(!m){resolve(null);return}
+     m.className='confirm-overlay';
+     m.innerHTML=`<div class="confirm-box"><h3>📍 تحضير خارج المعرض</h3><div class="muted">يجب تحديد الموقع وسبب المهمة قبل اعتماد التحضير.</div><div class="field"><label>سبب التحضير *</label><select id="a2v43Reason"><option value="">اختر السبب</option>${Object.entries(REASONS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div><div class="field"><label>تفاصيل إضافية</label><textarea id="a2v43ReasonNote" rows="3" placeholder="اكتب وصفًا مختصرًا للمهمة أو اسم العميل/الجهة"></textarea></div><div class="actions"><button class="btn secondary" id="a2v43Cancel">إلغاء</button><button class="btn" id="a2v43Ok">📍 تأكيد الموقع والتحضير</button></div></div>`;
+     $('a2v43Cancel').onclick=()=>{m.className='hidden';resolve(null)};
+     $('a2v43Ok').onclick=()=>{const r=$('a2v43Reason')?.value||'',n=$('a2v43ReasonNote')?.value.trim()||'';if(!r){alert('اختر سبب التحضير خارج المعرض.');return}m.className='hidden';resolve({reason:r,note:n})};
+   });
+ }
+ async function saveMode43(mode){
+   if(guardHolidayAttendance()||guardAfterShift())return;
+   try{
+     const c=await gps(),now=new Date(),info=fieldAttendanceInfo(c);
+     if(mode==='BRANCH'&& !info.inside){alert('موقعك خارج نطاق المعرض. استخدم «تحضير خارج المعرض».');return}
+     if(mode==='FIELD'&& info.inside){alert('موقعك داخل نطاق المعرض. استخدم «تحضير في المعرض».');return}
+     let reason='';
+     if(mode==='FIELD'){const picked=await chooseOutsideReason43();if(!picked)return;reason=outsideReason43(picked.reason)+(picked.note?' — '+picked.note:'')}
+     const rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&work_date=eq.'+today());
+     const a=rows[0];
+     if(!a?.check_in){
+       await saveIn(me.id,c,now,'تحضير '+(mode==='FIELD'?'خارج المعرض':'في المعرض'),{type:mode,reason,info});
+     }else{
+       await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,attendance_id:a.id,activity_type:mode==='FIELD'?'TRAVELING':'BRANCH',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:MODE_PREFIX+mode+'|'+reason})});
+     }
+     await renderField();
+   }catch(e){alert('تعذر تسجيل التحضير: '+(e.message||e))}
+ }
+ window.a2v43CheckInBranch=()=>saveMode43('BRANCH');
+ window.a2v43CheckInOutside=()=>saveMode43('FIELD');
+ window.a2v43Pause=async function(){
+   if(guardHolidayAttendance()||guardAfterShift())return;
+   const x=await a2v43WorkTotals();if(!x.attendance?.check_in){alert('سجل حضورك أولًا.');return}if(x.attendance?.check_out){alert('تم إنهاء الدوام.');return}if(x.paused){alert('العداد متوقف بالفعل.');return}
+   const reason=prompt('سبب إيقاف عداد الدوام (اختياري):','استراحة / انتظار مهمة');if(reason===null)return;
+   const c=await gps();await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,attendance_id:x.attendance.id,activity_type:'OTHER',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:PAUSE_START+(reason.trim()||'إيقاف مؤقت')})});await renderField();
+ };
+ window.a2v43Resume=async function(){
+   if(guardHolidayAttendance()||guardAfterShift())return;
+   const x=await a2v43WorkTotals();if(!x.attendance?.check_in){alert('لا يوجد حضور مسجل.');return}if(x.attendance?.check_out){alert('تم إنهاء الدوام.');return}if(!x.paused){alert('العداد يعمل بالفعل.');return}
+   const c=await gps();await api('/rest/v1/activities',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({employee_id:me.id,attendance_id:x.attendance.id,activity_type:'OTHER',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,note:PAUSE_END+'استئناف عداد الدوام'})});await renderField();
+ };
+ window.a2v43Checkout=async function(){
+   if(guardHolidayAttendance())return;const rows=await api('/rest/v1/attendance?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&work_date=eq.'+today());const a=rows[0];if(!a?.check_in){alert('سجل الحضور أولًا.');return}if(a.check_out){return}if(!confirm('تأكيد إنهاء الدوام الآن؟'))return;await api('/rest/v1/attendance?id=eq.'+encodeURIComponent(a.id),{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({check_out:new Date().toISOString(),updated_at:new Date().toISOString()})});await renderField();
+ };
+
+ /* يسمح بالحضور خارج المعرض لكل الموظفين، مع إبقاء حساب التأخير الحالي للمندوبين كما هو. */
+ const oldAttendanceConfirmation=attendanceConfirmation;
+ window.attendanceConfirmation=async function(c,now){
+   const info=fieldAttendanceInfo(c);
+   if(info.inside){return oldAttendanceConfirmation(c,now)}
+   return chooseOutsideReason43().then(p=>p?({type:'FIELD',reason:outsideReason43(p.reason)+(p.note?' — '+p.note:''),info}):null);
+ };
+ const oldCombined=combinedWorkMs;
+ window.combinedWorkMs=function(attendance,acts,now=new Date(),employee=null){
+   try{
+     const start=attendance?.check_in?new Date(attendance.check_in).getTime():0;if(!start)return {total:0,field:0,branch:0};
+     const end=Math.min(attendance?.check_out?new Date(attendance.check_out).getTime():now.getTime(),dayEndDate().getTime());
+     let paused=0,ps=null;
+     const arr=(acts||[]).filter(x=>String(x.created_at||'').slice(0,10)===today()).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+     for(const x of arr){const n=String(x.note||'');if(n.startsWith(PAUSE_START)){if(ps==null)ps=new Date(x.created_at).getTime()}else if(n.startsWith(PAUSE_END)&&ps!=null){paused+=Math.max(0,new Date(x.created_at).getTime()-ps);ps=null}}
+     if(ps!=null)paused+=Math.max(0,end-ps);
+     const gross=Math.max(0,end-start),brk=typeof isNoBreakEmployee==='function'&&isNoBreakEmployee(employee)?0:(typeof breakMsBetween==='function'?breakMsBetween(new Date(start),new Date(end)):0);
+     const total=Math.min(8*3600000,Math.max(0,gross-paused-brk));
+     let field=0;try{field=Math.min(total,fieldHoursMs(arr))}catch(_){field=0}
+     return {total,field,branch:Math.max(0,total-field)};
+   }catch(_){return oldCombined(attendance,acts,now,employee)}
+ };
+
+ /* تبسيط شريط التنقل للموظف */
+ const oldApply=window.applyNavPermissions;
+ window.applyNavPermissions=function(){
+   if(!me)return;
+   if(me.role==='SUPERVISOR'){return oldApply();}
+   const visible=new Set(['dashboard','leave','requests']);
+   if(hasPermission('inventory_view')||hasPermission('inventory'))visible.add('inventory');
+   if(me.role==='FIELD_REP')visible.add('issue');
+   document.querySelectorAll('.appNav button').forEach(b=>{
+     const oc=b.getAttribute('onclick')||'',m=oc.match(/appNavigate\('([^']+)'\)/);if(!m)return;const key=m[1];
+     const show=visible.has(key);b.style.display=show?'':'none';b.disabled=!show;b.setAttribute('aria-hidden',show?'false':'true');
+     if(key==='dashboard')b.innerHTML='<span>⌂</span> لوحتي';
+     if(key==='leave')b.innerHTML='<span>📅</span> طلب إجازة';
+     if(key==='inventory')b.innerHTML='<span>🏭</span> مخزون المعرض';
+     if(key==='requests')b.innerHTML='<span>📨</span> طلباتي';
+     if(key==='issue')b.innerHTML='<span>📤</span> طلب إخراج بضاعة';
+   });
+ };
+
+ /* صفحة الموظف المبسطة */
+ window.renderField=async function(){
+   clearInterval(window._fieldDashboardTimer);
+   $('content').innerHTML='<div class="card">جارٍ تحميل لوحة الموظف...</div>';
+   try{
+     const x=await a2v43WorkTotals(),a=x.attendance,pct=Math.min(100,Math.floor(x.ms/(8*3600000)*100)),remain=Math.max(0,8*3600000-x.ms),paused=x.paused;
+     const insideRadius=Number(getUiSettings().branchRadius||BRANCH_RADIUS);
+     $('content').innerHTML=`
+      <div class="card"><div class="sectionhead"><div><h2 style="margin:0;color:#08284a">لوحتي اليومية</h2><div class="muted">${esc43(me.name)} — ${esc43(roleName(me.role))}</div></div><span class="pill p-blue">${today()}</span></div>
+      <div class="employeeMiniStats" style="margin-top:12px"><div class="stat"><div class="label">المنجز</div><div class="num green" id="a2v43Done">${formatHours(x.ms)}</div></div><div class="stat"><div class="label">المتبقي</div><div class="num orange" id="a2v43Remain">${formatHours(remain)}</div></div><div class="stat"><div class="label">الإنجاز</div><div class="num blue" id="a2v43Pct">${pct}%</div></div><div class="stat"><div class="label">الحالة</div><div class="num" id="a2v43State" style="font-size:16px">${paused?'متوقف':a?.check_in?'يعمل':'لم يبدأ'}</div></div></div>
+      <div class="fieldCounterBar" style="margin-top:12px"><i id="a2v43Bar" style="width:${pct}%"></i></div>
+      <div class="muted" style="margin-top:8px">الهدف للمناديب: 8 ساعات عمل فعلية مرنة من وقت الحضور وحتى نهاية اليوم قبل 00:00. يمكن إيقاف العداد واستئنافه لاحقًا.</div></div>
+      <div class="card"><div class="sectionhead"><h3>🕘 التحضير والدوام</h3><span class="muted">نطاق المعرض ${insideRadius} م</span></div>
+       <div class="attendanceModeGrid">
+        ${!a?.check_in?`<button class="attendanceModeBtn branchBtn" onclick="a2v43CheckInBranch()"><span style="font-size:22px">🏢</span> تحضير في المعرض<small>يتحقق النظام من موقعك داخل نطاق المعرض.</small></button><button class="attendanceModeBtn outsideBtn" onclick="a2v43CheckInOutside()"><span style="font-size:22px">📍</span> تحضير خارج المعرض<small>تحديد GPS + سبب المهمة إلزامي.</small></button>`:`<button class="attendanceModeBtn branchBtn" onclick="a2v43CheckInBranch()">🏢 تسجيل موقع العمل الحالي<small>توثيق الموقع الحالي كنشاط عمل.</small></button><button class="attendanceModeBtn outsideBtn" onclick="a2v43CheckInOutside()">📍 تسجيل موقع خارج المعرض<small>يُطلب السبب ويُحفظ الموقع.</small></button>`}
+        ${paused?`<button class="attendanceModeBtn resumeBtn" onclick="a2v43Resume()">▶️ استئناف عداد الدوام<small>يستأنف احتساب الوقت من الآن.</small></button>`:`<button class="attendanceModeBtn pauseBtn" onclick="a2v43Pause()" ${a?.check_in?'':'disabled'}>⏸️ إيقاف عداد الدوام<small>يتوقف الاحتساب مؤقتًا ويمكن استئنافه لاحقًا.</small></button>`}
+        <button class="attendanceModeBtn" onclick="a2v43Checkout()" ${a?.check_in&&!a?.check_out?'':'disabled'}>🚪 إنهاء الدوام<small>تسجيل الانصراف يدويًا عند انتهاء العمل.</small></button>
+       </div>
+       <div class="employeeMapNote" style="margin-top:10px">📍 <b>التحضير خارج المعرض مسموح لجميع الموظفين</b> عند وجود مهمة عمل فعلية، مع حفظ إحداثيات GPS والسبب. الأسباب المتاحة: زيارة عميل، مراجعة دوائر حكومية، تحصيل، زيارة المستودع، مهمة خارج المعرض.</div>
+      </div>
+      <div class="card"><div class="sectionhead"><h3>⚡ الخدمات</h3><span class="muted">الخصائص الأساسية فقط</span></div><div class="employeeHomeGrid">
+       <button class="employeeHomeBtn" onclick="appNavigate('requests')"><span class="ehi">📨</span>طلباتي<small>متابعة طلبات الإجازات وطلبات إخراج البضاعة.</small></button>
+       ${me.role==='FIELD_REP'?`<button class="employeeHomeBtn" onclick="appNavigate('issue')"><span class="ehi">📤</span>طلب إخراج بضاعة<small>إرسال طلب للمشرف، ولا يتم الخصم إلا بعد الاعتماد.</small></button>`:''}
+       <button class="employeeHomeBtn" onclick="appNavigate('inventory')"><span class="ehi">🏭</span>مخزون المعرض<small>استعراض المخزون المتاح دون تعديل.</small></button>
+       <button class="employeeHomeBtn" onclick="openLeaveRequest()"><span class="ehi">📅</span>طلب إجازة<small>تقديم طلب إجازة ومتابعة حالته.</small></button>
+      </div></div>
+      <div class="card"><div class="sectionhead"><h3>🗺️ موقع العمل</h3><span class="muted">آخر موقع مؤكد</span></div><div id="myMap" class="map"></div></div>
+      <div class="card"><div class="sectionhead"><h3>📋 نشاط اليوم</h3><button class="btn secondary small" onclick="renderField()">↻ تحديث</button></div><div id="myActs">جارٍ التحميل...</div></div>`;
+     if(a?.start_latitude)drawMyMap(a.start_latitude,a.start_longitude,me.name);else drawMyMap(24.47,39.61,'بانتظار الموقع');
+     const acts=x.acts;$('myActs').innerHTML=acts.map(z=>`<div class="activity"><b>${esc43(z.note||activityName(z.activity_type))}</b><div class="muted">${dateTime(z.created_at)}${z.latitude!=null?' — 📍 موقع مسجل':''}</div></div>`).join('')||'<div class="muted">لا يوجد نشاط مسجل اليوم.</div>';
+     clearInterval(window._fieldDashboardTimer);window._fieldDashboardTimer=setInterval(async()=>{const y=await a2v43WorkTotals().catch(()=>null);if(!y)return;const pp=Math.min(100,Math.floor(y.ms/(8*3600000)*100)),rr=Math.max(0,8*3600000-y.ms);if($('a2v43Done'))$('a2v43Done').textContent=formatHours(y.ms);if($('a2v43Remain'))$('a2v43Remain').textContent=formatHours(rr);if($('a2v43Pct'))$('a2v43Pct').textContent=pp+'%';if($('a2v43Bar'))$('a2v43Bar').style.width=pp+'%';if($('a2v43State'))$('a2v43State').textContent=y.paused?'متوقف':y.attendance?.check_in?'يعمل':'لم يبدأ'},1000);
+   }catch(e){$('content').innerHTML='<div class="card msg err">تعذر تحميل لوحة الموظف: '+esc43(e.message)+'</div>'}
+ };
+
+ /* طلباتي للموظف — يعرض طلباته فقط، بينما المشرف يبقى على مركز الطلبات الكامل. */
+ const oldRequests=window.renderRequestsCenter;
+ window.renderRequestsCenter=async function(){
+   if(me?.role==='SUPERVISOR')return oldRequests();
+   if(!me){return}
+   setActiveNav('requests');$('content').innerHTML='<div class="card">جارٍ تحميل طلباتك...</div>';
+   try{
+     const [leaves,issues]=await Promise.all([
+       api('/rest/v1/leave_requests?select=*&employee_id=eq.'+encodeURIComponent(me.id)+'&order=created_at.desc&limit=100'),
+       me.role==='FIELD_REP'?api('/rest/v1/showroom_issue_forms?select=*&order=created_at.desc&limit=200'):Promise.resolve([])
+     ]);
+     const leaveNames={ANNUAL:'إجازة سنوية',SICK:'إجازة مرضية',EMERGENCY:'ظرف طارئ',UNPAID:'إجازة بدون راتب',OTHER:'أخرى'};
+     const leaveHtml=leaves.map(r=>`<div class="issueCard"><div class="issueCardHead"><div><b>📅 ${esc43(leaveNames[r.leave_type]||r.leave_type||'إجازة')}</b><div class="muted">${esc43(r.start_date||'')} إلى ${esc43(r.end_date||'')}</div></div><span class="pill ${r.status==='APPROVED'?'p-green':r.status==='REJECTED'?'p-red':'p-orange'}">${r.status==='APPROVED'?'مقبول':r.status==='REJECTED'?'مرفوض':'قيد المراجعة'}</span></div><div class="issueCardBody"><div class="issueMeta"><div class="box">المدة<b>${Number(r.days_count||0)} يوم</b></div><div class="box">تاريخ الطلب<b>${esc43(String(r.created_at||'').slice(0,10))}</b></div></div><div class="actionRow no-print"><button class="btn secondary small" onclick="printSavedLeave('${r.id}')">🖨️ طباعة</button></div></div></div>`).join('')||'<div class="muted">لا توجد طلبات إجازة.</div>';
+     const issueHtml=issues.filter(r=>{try{return JSON.parse(r.notes||'{}')?.__A2_ISSUE_WORKFLOW__?.requested_by===me.id||r.created_by===me.id||r.recipient===me.name}catch(_){return r.created_by===me.id||r.recipient===me.name}}).map(r=>{const m=parseIssueMeta(r)||{};return `<div class="issueCard"><div class="issueCardHead"><div><b>📤 طلب إخراج بضاعة</b><div class="muted">${esc43(r.issue_date||'')} — ${esc43(r.tire_type||'')} — ${esc43(r.size_model||'')}</div></div><span class="pill ${issueStatusClass(r)}">${esc43(issueStatusLabel(r))}</span></div><div class="issueCardBody"><div class="issueMeta"><div class="box">الكمية<b>${Number(r.quantity||0)}</b></div><div class="box">السبب<b>${esc43(r.reason||'—')}</b></div><div class="box">ملاحظات المشرف<b>${esc43(m.supervisor_note||'—')}</b></div></div><div class="actionRow no-print"><button class="btn secondary small" onclick="printIssueFormAny('${r.id}')">🖨️ طباعة</button></div></div></div>`}).join('')||'<div class="muted">لا توجد طلبات إخراج بضاعة.</div>';
+     $('content').innerHTML=`<div class="card"><div class="sectionhead"><h2 style="margin:0;color:#08284a">📨 طلباتي</h2><span class="pill p-blue">${leaves.length+issues.length} طلب</span></div><div class="requestTabs"><button class="btn secondary small" onclick="openLeaveRequest()">📅 طلب إجازة جديد</button>${me.role==='FIELD_REP'?`<button class="btn small" onclick="appNavigate('issue')">📤 طلب إخراج بضاعة جديد</button>`:''}</div></div><div class="card"><div class="sectionhead"><h3>📅 طلبات الإجازات</h3><span class="pill p-orange">${leaves.length}</span></div>${leaveHtml}</div>${me.role==='FIELD_REP'?`<div class="card"><div class="sectionhead"><h3>📤 طلبات إخراج البضاعة</h3><span class="pill p-orange">${issues.length}</span></div>${issueHtml}</div>`:''}`;
+   }catch(e){$('content').innerHTML='<div class="card msg err">تعذر تحميل الطلبات: '+esc43(e.message||e)+'</div>'}
+ };
+
+ /* للمشرف: تأكيد الفصل البصري مع الحفاظ على كل صلاحياته الحالية. */
+ const oldSupervisor=window.renderSupervisor;
+ window.renderSupervisor=async function(){await oldSupervisor();const hero=document.querySelector('.dashboardHero');if(hero){hero.classList.add('supervisorDashboardHero');const p=hero.querySelector('p');if(p)p.textContent='لوحة تحكم المشرف — متابعة الموظفين، الموافقات، الحضور، المواقع، المخزون والتقارير.'}};
+
+ /* إتاحة شاشة الساعات للموظفين بدل اقتصارها على المندوبين، مع منع فتحها للمشرف من هذه الشاشة. */
+ const oldNavigate=window.appNavigate;
+ window.appNavigate=async function(key){
+   if(key==='fieldhours'&&me&&me.role!=='SUPERVISOR'){
+     return renderField();
+   }
+   return oldNavigate(key);
+ };
+
+ /* بعد تحميل المستخدم، أعد رسم لوحة الموظف المبسطة وتطبيق القائمة. */
+ const oldBoot=window.boot;
+ window.boot=async function(user){await oldBoot(user);if(me&&me.role!=='SUPERVISOR'){applyNavPermissions();if(me.role==='GOVERNMENT_REP'){await renderGov()}else{await renderField()}}};
+})();
+</script>
 </body></html>
