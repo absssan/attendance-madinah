@@ -383,7 +383,18 @@ body{background:radial-gradient(circle at 10% 0%,#eef6ff 0,#f4f7fb 34%,#eef3f8 1
 .recordItem{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #e1e8ef;border-radius:12px;background:#fff;padding:10px 12px}
 .recordItem .recordMeta{flex:1}.recordItem b{display:block;font-size:13px;color:#123f70}.recordItem small{color:#718096;font-size:11px}
 @media(max-width:700px){.brand{min-height:95px!important}.brandLogo{width:140px!important;height:82px!important}.brandText h1{font-size:23px!important}.brandText h2{font-size:17px!important}.companyBadge{padding:8px!important}.recordToolGrid{grid-template-columns:1fr}.topin{padding:12px 10px 10px!important}}
-.inventoryTable .btn{margin:2px!important}.inventoryTable .btn:disabled{opacity:.45!important;cursor:not-allowed!important}.inventoryTable td.no-print{white-space:nowrap}</style>
+.inventoryTable .btn{margin:2px!important}.inventoryTable .btn:disabled{opacity:.45!important;cursor:not-allowed!important}.inventoryTable td.no-print{white-space:nowrap}<style>
+/* V47 — configurable quotation bank accounts */
+.bankSettingsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.bankSettingItem{border:1px solid #d7e2ec;border-radius:14px;padding:13px;background:linear-gradient(180deg,#fff,#f8fbfe)}
+.bankSettingHead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;color:#08284a}
+.bankSettingItem .field{margin:8px 0}.bankSettingItem .field:last-child{margin-bottom:0}
+.bankSettingItem input,.bankSettingItem select{width:100%;padding:10px;border:1px solid #d4dee8;border-radius:9px;background:#fff}
+.bankSettingItem input[dir="ltr"]{text-align:left}
+@media(max-width:800px){.bankSettingsGrid{grid-template-columns:1fr}}
+@media print{.bankSettingsCard{display:none!important}}
+</style>
+</style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 
 <style>
@@ -1369,6 +1380,35 @@ function renderSettingsCenter(){
     <div class="settingsCard"><h4>📅 أيام الإجازة</h4><div class="msg ok">الجمعة: إجازة أسبوعية للجميع.</div><div class="msg ok">السبت: إجازة أسبوعية ليحيى الكلابي.</div><div class="muted">هذه القاعدة مطبقة حاليًا في النظام.</div></div>
     <div class="settingsCard"><h4>🔐 صلاحيات المشرف</h4><div class="switchRow"><span>تعديل حضور وانصراف الجميع</span><button class="switch on"></button></div><div class="switchRow"><span>تسجيل الإجازات والاستئذان</span><button class="switch on"></button></div><div class="switchRow"><span>طباعة تقارير المناديب</span><button class="switch on"></button></div><div class="switchRow"><span>بدء سجلات جديدة</span><button class="switch on"></button></div><div class="muted" style="margin-top:8px">الحماية الفعلية يجب أن تبقى في Supabase RLS، وليس في الواجهة فقط.</div></div>
   </div>
+  <div class="settingsCard bankSettingsCard" style="grid-column:1/-1;margin-top:12px">
+    <div class="sectionhead"><h4>🏦 حساباتنا البنكية في التسعيرة</h4><span class="pill p-blue">اختياري</span></div>
+    <div class="muted" style="margin-bottom:10px">أدخل الحسابات يدويًا حسب الحاجة. اختر البنك فقط للحساب الذي تريد إظهاره؛ الحسابات التي لا تختار لها بنكًا لن تظهر في التسعيرة أو الطباعة.</div>
+    <div class="bankSettingsGrid">
+      ${Array.from({length:4},(_,i)=>{
+        const a=(s.bankAccounts||[])[i]||{};
+        return `<div class="bankSettingItem">
+          <div class="bankSettingHead"><b>الحساب ${i+1}</b><span class="muted">يظهر فقط عند اختيار البنك</span></div>
+          <div class="field"><label>البنك</label><select id="bankName_${i}">
+            <option value="">— عدم عرض الحساب —</option>
+            <option value="البنك الأهلي السعودي" ${a.bank==='البنك الأهلي السعودي'?'selected':''}>البنك الأهلي السعودي (SNB)</option>
+            <option value="مصرف الراجحي" ${a.bank==='مصرف الراجحي'?'selected':''}>مصرف الراجحي (Al Rajhi)</option>
+            <option value="بنك الرياض" ${a.bank==='بنك الرياض'?'selected':''}>بنك الرياض (Riyad Bank)</option>
+            <option value="البنك السعودي الأول" ${a.bank==='البنك السعودي الأول'?'selected':''}>البنك السعودي الأول (SAB)</option>
+            <option value="البنك السعودي الفرنسي" ${a.bank==='البنك السعودي الفرنسي'?'selected':''}>البنك السعودي الفرنسي (BSF)</option>
+            <option value="البنك العربي الوطني" ${a.bank==='البنك العربي الوطني'?'selected':''}>البنك العربي الوطني (ANB)</option>
+            <option value="مصرف الإنماء" ${a.bank==='مصرف الإنماء'?'selected':''}>مصرف الإنماء (Alinma)</option>
+            <option value="بنك البلاد" ${a.bank==='بنك البلاد'?'selected':''}>بنك البلاد (Bank Albilad)</option>
+            <option value="بنك الجزيرة" ${a.bank==='بنك الجزيرة'?'selected':''}>بنك الجزيرة (Bank AlJazira)</option>
+            <option value="بنك آخر" ${a.bank==='بنك آخر'?'selected':''}>بنك آخر</option>
+          </select></div>
+          <div class="field"><label>رقم الحساب</label><input id="bankAccount_${i}" type="text" inputmode="numeric" autocomplete="off" placeholder="أدخل رقم الحساب" value="${esc(a.account||'')}"></div>
+          <div class="field"><label>IBAN</label><input id="bankIban_${i}" type="text" dir="ltr" inputmode="text" autocomplete="off" placeholder="SA..." value="${esc(a.iban||'')}"></div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="actionRow" style="margin-top:10px"><button class="btn small" onclick="saveBankAccountsSettings()">💾 حفظ الحسابات البنكية</button></div>
+    <div id="bankSettingsMsg"></div>
+  </div>
   <div class="recordTools"><h4>🗑️ إدارة سجلات الموظفين</h4><div class="muted">للمشرف فقط. يمكنك بدء سجل جديد للموظف بالكامل أو حذف بند واحد فقط دون حذف حساب الموظف.</div><div class="recordToolGrid" style="margin-top:12px"><div class="field" style="margin:0"><label>الموظف</label><select id="recordEmployeeSelect"><option value="">اختر الموظف</option>${(window._employees||[]).map(e=>`<option value="${e.id}">${esc(e.name)} — ${roleName(e.role)}</option>`).join('')}</select></div><div class="field" style="margin:0"><label>نوع السجل</label><select id="recordTypeSelect"><option value="attendance">الحضور والانصراف</option><option value="activities">الأنشطة والزيارات</option><option value="field_visits">الزيارات الميدانية</option><option value="government_tasks">المهام الحكومية</option><option value="saved_quotations">التسعيرات</option><option value="unbilled_goods">البضاعة غير المفوترة</option><option value="rep_cash_journals">يومية الصندوق</option><option value="rep_customers">ملفات العملاء</option></select></div></div><div class="actionRow" style="margin-top:10px"><button class="btn secondary small" onclick="loadEmployeeRecordsForDeletion()">🔎 عرض السجل</button><button class="btn danger small" onclick="resetSelectedEmployeeRecords()">♻️ تصفير سجل الموظف بالكامل</button></div><div id="employeeRecordList"></div></div><div class="card" style="margin:12px 0 0;background:#f8fafc"><div class="sectionhead"><h3>🧰 أدوات المشرف</h3></div><div class="actionRow"><button class="btn danger small" onclick="resetOperationalData()">🗑️ بدء سجلات جديدة</button><button class="btn secondary small" onclick="appNavigate('employees')">👥 إدارة الموظفين</button><button class="btn secondary small" onclick="printDailyReport()">🖨️ طباعة الكشف</button><button class="btn secondary small" onclick="renderSupervisor()">↻ تحديث النظام</button></div></div>
   </div>`;
 }
@@ -1380,6 +1420,44 @@ function saveUiSettings(){
   s.lastLocation=$('lastLocationSwitch')?.classList.contains('on');
   localStorage.setItem('kas_ui_settings',JSON.stringify(s));
   alert('✓ تم حفظ إعدادات الواجهة.');
+}
+
+function getBankAccountsSettings(){
+  const s=getUiSettings();
+  return Array.isArray(s.bankAccounts)?s.bankAccounts:[];
+}
+function saveBankAccountsSettings(){
+  if(me?.role!=='SUPERVISOR'){alert('إعداد الحسابات البنكية متاح للمشرف فقط.');return}
+  const s=getUiSettings(), accounts=[];
+  for(let i=0;i<4;i++){
+    const bank=($('bankName_'+i)?.value||'').trim();
+    const account=($('bankAccount_'+i)?.value||'').trim();
+    const iban=($('bankIban_'+i)?.value||'').trim().toUpperCase();
+    accounts.push({bank,account,iban});
+  }
+  s.bankAccounts=accounts;
+  localStorage.setItem('kas_ui_settings',JSON.stringify(s));
+  const msg=$('bankSettingsMsg');
+  if(msg)msg.innerHTML='<div class="msg ok">✓ تم حفظ الحسابات البنكية. الحسابات غير المختارة لن تظهر في التسعيرة.</div>';
+}
+function renderQuotationBankAccounts(){
+  const accounts=getBankAccountsSettings().filter(a=>a&&a.bank);
+  if(!accounts.length)return '';
+  const codes={
+    'البنك الأهلي السعودي':'SNB','مصرف الراجحي':'Al Rajhi','بنك الرياض':'Riyad Bank',
+    'البنك السعودي الأول':'SAB','البنك السعودي الفرنسي':'BSF','البنك العربي الوطني':'ANB',
+    'مصرف الإنماء':'Alinma','بنك البلاد':'Bank Albilad','بنك الجزيرة':'Bank AlJazira'
+  };
+  return `<div class="qBankAccounts">
+    <div class="qBankTitle">حساباتنا البنكية</div>
+    <div class="qBankGrid">
+      ${accounts.map(a=>`<div class="qBankCard">
+        <div class="qBankName">${esc(a.bank)}${codes[a.bank]?` <span>${esc(codes[a.bank])}</span>`:''}</div>
+        ${a.account?`<div class="qBankLine"><span>رقم الحساب</span><b dir="ltr">${esc(a.account)}</b></div>`:''}
+        ${a.iban?`<div class="qBankLine"><span>IBAN</span><b dir="ltr">${esc(a.iban)}</b></div>`:''}
+      </div>`).join('')}
+    </div>
+  </div>`;
 }
 function updateTopClock(){
   const d=new Date();
@@ -1518,21 +1596,7 @@ function printPricing(){
     <div class="qLower"><div class="qTotals"><div><span>الإجمالي قبل الضريبة</span><b>${Math.round(net).toLocaleString('en-US')} ر.س</b></div><div><span>ضريبة القيمة المضافة (15%)</span><b>${Math.round(vat).toLocaleString('en-US')} ر.س</b></div><div class="grand"><span>الإجمالي الكلي شامل الضريبة</span><b>${grandRounded.toLocaleString('en-US')} ر.س</b></div><div><span>المبلغ كتابة</span><b>${esc(words)}</b></div></div>
       <div class="qNotice"><strong>⚠️ تنبيه مهم</strong><p>الأسعار المعروضة قابلة للتغيير والتعديل حسب التوفر وتغير السوق والاتفاق النهائي.</p><strong>هذه تسعيرة وليست فاتورة</strong><p>لا تعتبر هذه الورقة فاتورة أو التزامًا بالبيع، ويتم اعتماد السعر النهائي عند إصدار الفاتورة.</p><p>هذه التسعيرة صالحة لمدة ثلاثة أيام.</p></div></div>
     <div class="qBottom"><div class="qRep"><div><b>معدّ التسعيرة (المندوب):</b> ${esc(preparedBy)}</div><div><b>رقم جوال المندوب للتواصل:</b> ${esc(preparedPhone||'غير محدد')}</div></div></div>
-    <div class="qBankAccounts">
-  <div class="qBankTitle">حساباتنا البنكية</div>
-  <div class="qBankGrid">
-    <div class="qBankCard">
-      <div class="qBankName">البنك الأهلي السعودي <span>SNB</span></div>
-      <div class="qBankLine"><span>رقم الحساب</span><b dir="ltr">25349844000102</b></div>
-      <div class="qBankLine"><span>IBAN</span><b dir="ltr">SA0810000025349844000102</b></div>
-    </div>
-    <div class="qBankCard">
-      <div class="qBankName">مصرف الراجحي <span>Al Rajhi</span></div>
-      <div class="qBankLine"><span>رقم الحساب</span><b dir="ltr">126608010224193</b></div>
-      <div class="qBankLine"><span>IBAN</span><b dir="ltr">SA1880000126608010224193</b></div>
-    </div>
-  </div>
-</div>
+    ${renderQuotationBankAccounts()}
     <div class="qStampBottom"><img src="${stamp_uri}" alt="ختم الفرع"></div>
     <div class="qFooter">شركة خالد عبدالله الصافي — فرع المدينة المنورة &nbsp; | &nbsp; KAS TIRES</div>
   </div>`;
