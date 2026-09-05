@@ -1702,7 +1702,7 @@ async function printUnbilledGoods(){
     const invoicedCount=goods.filter(x=>x.status==='INVOICED').length;
     const totalQty=goods.reduce((a,x)=>a+Number(x.qty??1),0);
 
-    const html=head+`<div class="unbilledPrintSheet">
+    const html=head+`<div class="unbilledPrintSheet warehouseOrderPrintSheet">
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 12px">
         <div style="border:1px solid #c8d2dc;padding:8px;text-align:center"><b>عدد السجلات</b><br>${goods.length}</div>
         <div style="border:1px solid #c8d2dc;padding:8px;text-align:center"><b>إجمالي الكمية</b><br>${totalQty.toLocaleString('en-US')}</div>
@@ -2238,7 +2238,21 @@ function printHeader(title,dateStr){
 .unbilledSummary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
 @media(max-width:900px){.unbilledForm{grid-template-columns:1fr 1fr}.unbilledForm .full{grid-column:span 2}}
 @media(max-width:600px){.unbilledForm{grid-template-columns:1fr}.unbilledForm .full{grid-column:span 1}.unbilledSummary{grid-template-columns:1fr 1fr}}
-@media print{.unbilledTable{min-width:0!important}.unbilledTable th,.unbilledTable td{font-size:9px;padding:6px}.unbilledPrintSheet{direction:rtl;font-family:Tahoma,Arial,sans-serif}}
+@media print{
+.unbilledTable{min-width:0!important}
+.unbilledTable th,.unbilledTable td{font-size:9px;padding:6px}
+.unbilledPrintSheet{direction:rtl;font-family:Tahoma,Arial,sans-serif}
+/* ضغط صفوف ورقة طلب المستودعات فقط — بقية الطباعات لا تتأثر */
+.warehouseOrderPrintSheet table th,.warehouseOrderPrintSheet table td{
+  font-size:8px!important;
+  padding:2px 4px!important;
+  line-height:1.05!important;
+  height:auto!important;
+  min-height:0!important;
+  vertical-align:middle!important;
+}
+.warehouseOrderPrintSheet table tbody tr{height:auto!important}
+}
 
 .qCustomerPrint{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;margin:8px 0 10px}.qCustomerPrint>div{border:1px solid #d8e1ea;border-radius:8px;padding:6px 8px;background:#f8fbff}.qCustomerPrint span{display:block;font-size:8px;color:#64748b}.qCustomerPrint b{display:block;font-size:10px;margin-top:2px}@media(max-width:700px){.qCustomerPrint{grid-template-columns:1fr}}
 /* Saved quotations UI */
