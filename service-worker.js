@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kas-tires-pwa-v1';
+const CACHE_NAME = 'kas-tires-pwa-v2';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -14,15 +14,5 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match('/'))
-    );
-    return;
-  }
-
-  event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
-  );
+  event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
 });
