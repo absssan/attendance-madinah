@@ -883,6 +883,14 @@ body{background:radial-gradient(circle at 10% 0%,#eef6ff 0,#f4f7fb 34%,#eef3f8 1
 @media(max-width:600px){.fhSupervisorToolbar{grid-template-columns:1fr}.fhRepMetrics{grid-template-columns:1fr 1fr}}
 @media print{.fhReportPrint{page-break-inside:auto}.fhRepCard{page-break-inside:avoid}.fhChart{page-break-inside:avoid}.fhReportPrint tr{page-break-inside:avoid}}
 </style>
+
+<link rel="manifest" href="/manifest.json">
+<meta name="application-name" content="KAS TIRES - تحضير فرع المدينة">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="KAS TIRES">
+<link rel="apple-touch-icon" href="/icon-192.png">
+
 </head>
 <body>
 <header class="top"><div class="topin"><div class="brand">
@@ -1664,7 +1672,18 @@ function openCustomerFiles(id){
 async function removeCustomerAttachment(id,index){if(!confirm('حذف هذه الصورة من ملف العميل؟'))return;try{const c=(await api('/rest/v1/unbilled_customers?select=*&id=eq.'+encodeURIComponent(id)))[0];const a=Array.isArray(c?.attachments)?c.attachments:[];a.splice(index,1);await api('/rest/v1/unbilled_customers?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({attachments:a,updated_at:new Date().toISOString()})});$('customerFilesModal')?.remove();openCustomerFiles(id)}catch(e){alert('تعذر حذف الصورة: '+e.message)}}
 async function deleteCustomerGoods(customerId){if(me?.role!=='SUPERVISOR'||!customerId)return;if(!confirm('سيتم حذف ملف العميل وجميع الأصناف المرتبطة به والمرفقات. هل تريد المتابعة؟'))return;try{await api('/rest/v1/unbilled_customers?id=eq.'+encodeURIComponent(customerId),{method:'DELETE',headers:{Prefer:'return=minimal'}});await renderUnbilledGoods()}catch(e){alert('تعذر حذف ملف العميل: '+e.message)}}
 async function printCustomerUnbilled(customerId,customerName){
-  const printWin=openPrintWindow();if(!printWin)return;try{let goods=customerId?await api('/rest/v1/unbilled_goods?select=*&customer_id=eq.'+encodeURIComponent(customerId)+'&order=issue_date.asc'):await api('/rest/v1/unbilled_goods?select=*&customer_name=eq.'+encodeURIComponent(customerName)+'&order=issue_date.asc');const rows=goods.map((g,i)=>`<tr><td>${i+1}</td><td>${esc(g.tire_size)}</td><td>${esc(g.tire_name)}</td><td>${esc(g.tire_type||'—')}</td><td>${esc(g.issue_date||'—')}</td><td>${esc(g.warehouse_release_no||'—')}</td><td>${g.status==='INVOICED'?'تم إصدار الفاتورة':'غير مفوتر'}</td><td>${esc(g.invoice_number||'—')}</td><td>${esc(g.invoice_date||'—')}</td></tr>`).join('');const html=printHeader('ملف البضاعة — '+customerName,today())+`<h3 style="text-align:center">العميل: ${esc(customerName)}</h3><table><thead><tr><th>م</th><th>المقاس</th><th>اسم الإطار</th><th>النوع</th><th>تاريخ الصرف</th><th>رقم الفسح</th><th>الحالة</th><th>رقم الفاتورة</th><th>تاريخ الفاتورة</th></tr></thead><tbody>${rows||'<tr><td colspan="9">لا توجد أصناف.</td></tr>'}</tbody></table><footer>عدد الأصناف: ${goods.length}</footer></div></body></html>`;writePrintWindow(printWin,html)}catch(e){try{printWin.close()}catch(_){}alert('تعذر طباعة ملف العميل: '+e.message)}}
+  const printWin=openPrintWindow();if(!printWin)return;try{let goods=customerId?await api('/rest/v1/unbilled_goods?select=*&customer_id=eq.'+encodeURIComponent(customerId)+'&order=issue_date.asc'):await api('/rest/v1/unbilled_goods?select=*&customer_name=eq.'+encodeURIComponent(customerName)+'&order=issue_date.asc');const rows=goods.map((g,i)=>`<tr><td>${i+1}</td><td>${esc(g.tire_size)}</td><td>${esc(g.tire_name)}</td><td>${esc(g.tire_type||'—')}</td><td>${esc(g.issue_date||'—')}</td><td>${esc(g.warehouse_release_no||'—')}</td><td>${g.status==='INVOICED'?'تم إصدار الفاتورة':'غير مفوتر'}</td><td>${esc(g.invoice_number||'—')}</td><td>${esc(g.invoice_date||'—')}</td></tr>`).join('');const html=printHeader('ملف البضاعة — '+customerName,today())+`<h3 style="text-align:center">العميل: ${esc(customerName)}</h3><table><thead><tr><th>م</th><th>المقاس</th><th>اسم الإطار</th><th>النوع</th><th>تاريخ الصرف</th><th>رقم الفسح</th><th>الحالة</th><th>رقم الفاتورة</th><th>تاريخ الفاتورة</th></tr></thead><tbody>${rows||'<tr><td colspan="9">لا توجد أصناف.</td></tr>'}</tbody></table><footer>عدد الأصناف: ${goods.length}</footer></div>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(err => {
+      console.warn('Service Worker registration failed:', err);
+    });
+  });
+}
+</script>
+
+</body></html>`;writePrintWindow(printWin,html)}catch(e){try{printWin.close()}catch(_){}alert('تعذر طباعة ملف العميل: '+e.message)}}
 async function printUnbilledGoods(){
   if(me?.role!=='SUPERVISOR'&&me?.role!=='FIELD_REP'){alert('هذه الصلاحية للمشرف والمناديب فقط.');return}
   const printWin=openPrintWindow();if(!printWin)return;
