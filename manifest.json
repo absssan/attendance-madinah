@@ -1,6 +1,6 @@
 {
   "name": "خدمات فرع المدينة",
-"short_name": "خدمات فرع المدينة",
+  "short_name": "خدمات فرع المدينة",
   "lang": "ar",
   "dir": "rtl",
   "start_url": "/",
@@ -8,16 +8,16 @@
   "display": "standalone",
   "background_color": "#f4f7fb",
   "theme_color": "#0b1f33",
-  "description": "نظام حضور ومتابعة وتشغيل فرع المدينة المنورة",
+  "description": "خدمات مساندة فرع المدينة",
   "icons": [
     {
-      "src": "/icon-192.png"
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-     "src": "/icon-512.png"
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
