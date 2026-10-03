@@ -3434,18 +3434,55 @@ if ('serviceWorker' in navigator) {
   }
   async function custodyPdfBlob47(){
     await ensureHtml2pdf47();
-    const el=document.querySelector('#custodyPrintOverlay47 .cpPaper47');
-    if(!el)throw Error('افتح معاينة العهدة أولاً.');
+    const source=document.querySelector('#custodyPrintOverlay47 .cpPaper47');
+    if(!source)throw Error('افتح معاينة العهدة أولاً.');
     const ym=(window.currentCustodyMonth||$('custodyMonth')?.value||today().slice(0,7)).slice(0,7);
-    const opt={
-      margin:[5,5,5,5],
-      filename:'سجل-العهدة-'+ym+'.pdf',
-      image:{type:'jpeg',quality:.98},
-      html2canvas:{scale:2,useCORS:true,logging:false,scrollX:0,scrollY:0,windowWidth:1120},
-      jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},
-      pagebreak:{mode:['css','legacy'],avoid:['tr']}
-    };
-    return await window.html2pdf().set(opt).from(el).outputPdf('blob');
+
+    // أنشئ نسخة تصدير مستقلة بعرض ثابت حتى لا يقص الجوال الأعمدة الخارجة عن الشاشة.
+    const exportWrap=document.createElement('div');
+    exportWrap.id='custodyPdfExport47';
+    exportWrap.style.cssText='position:fixed;left:-100000px;top:0;width:1120px;min-width:1120px;max-width:1120px;background:#fff;overflow:visible;z-index:-1;direction:rtl;';
+    const clone=source.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.style.cssText='width:1120px!important;min-width:1120px!important;max-width:1120px!important;margin:0!important;padding:16px!important;box-sizing:border-box!important;overflow:visible!important;background:#fff!important;box-shadow:none!important;';
+    exportWrap.appendChild(clone);
+    document.body.appendChild(exportWrap);
+
+    try{
+      // اجعل الجدول والملخص داخل حدود ورقة A4 أفقية بالكامل.
+      clone.querySelectorAll('table').forEach(t=>{
+        t.style.width='100%';
+        t.style.maxWidth='100%';
+        t.style.tableLayout='fixed';
+        t.style.overflow='visible';
+      });
+      clone.querySelectorAll('th,td').forEach(cell=>{
+        cell.style.wordBreak='break-word';
+        cell.style.overflowWrap='anywhere';
+        cell.style.boxSizing='border-box';
+      });
+
+      const opt={
+        margin:[4,4,4,4],
+        filename:'سجل-العهدة-'+ym+'.pdf',
+        image:{type:'jpeg',quality:.98},
+        html2canvas:{
+          scale:1.65,
+          useCORS:true,
+          logging:false,
+          scrollX:0,
+          scrollY:0,
+          width:1120,
+          windowWidth:1120,
+          backgroundColor:'#ffffff'
+        },
+        jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},
+        pagebreak:{mode:['css','legacy'],avoid:['tr']}
+      };
+      return await window.html2pdf().set(opt).from(clone).outputPdf('blob');
+    }finally{
+      exportWrap.remove();
+    }
   }
   window.downloadCustodyPdf47=async function(){
     try{
