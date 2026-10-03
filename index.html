@@ -3438,13 +3438,13 @@ if ('serviceWorker' in navigator) {
     if(!source)throw Error('افتح معاينة العهدة أولاً.');
     const ym=(window.currentCustodyMonth||$('custodyMonth')?.value||today().slice(0,7)).slice(0,7);
 
-    // أنشئ نسخة تصدير مستقلة بعرض ثابت حتى لا يقص الجوال الأعمدة الخارجة عن الشاشة.
+    // نسخة A4 عمودية مستقلة: عرض ثابت يضمن احتواء جميع الأعمدة بدون قص على الجوال.
     const exportWrap=document.createElement('div');
     exportWrap.id='custodyPdfExport47';
-    exportWrap.style.cssText='position:fixed;left:-100000px;top:0;width:1120px;min-width:1120px;max-width:1120px;background:#fff;overflow:visible;z-index:-1;direction:rtl;';
+    exportWrap.style.cssText='position:fixed;left:-100000px;top:0;width:760px;min-width:760px;max-width:760px;background:#fff;overflow:visible;z-index:-1;direction:rtl;';
     const clone=source.cloneNode(true);
     clone.removeAttribute('id');
-    clone.style.cssText='width:1120px!important;min-width:1120px!important;max-width:1120px!important;margin:0!important;padding:16px!important;box-sizing:border-box!important;overflow:visible!important;background:#fff!important;box-shadow:none!important;';
+    clone.style.cssText='width:760px!important;min-width:760px!important;max-width:760px!important;margin:0!important;padding:12px!important;box-sizing:border-box!important;overflow:visible!important;background:#fff!important;box-shadow:none!important;';
     exportWrap.appendChild(clone);
     document.body.appendChild(exportWrap);
 
@@ -3472,11 +3472,11 @@ if ('serviceWorker' in navigator) {
           logging:false,
           scrollX:0,
           scrollY:0,
-          width:1120,
-          windowWidth:1120,
+          width:760,
+          windowWidth:760,
           backgroundColor:'#ffffff'
         },
-        jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},
+        jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
         pagebreak:{mode:['css','legacy'],avoid:['tr']}
       };
       return await window.html2pdf().set(opt).from(clone).outputPdf('blob');
@@ -3497,6 +3497,29 @@ if ('serviceWorker' in navigator) {
     }catch(e){
       const btn=document.getElementById('custodyPdfDownload47');if(btn){btn.disabled=false;btn.textContent='⬇️ تحميل PDF'}
       alert('تعذر إنشاء PDF: '+(e.message||e));
+    }
+  };
+  window.shareCustodyPdf47=async function(){
+    const btn=document.getElementById('custodyPdfShare47');
+    const old=btn?.textContent;
+    try{
+      if(btn){btn.disabled=true;btn.textContent='جارٍ تجهيز PDF...'}
+      const blob=await custodyPdfBlob47();
+      const ym=(window.currentCustodyMonth||$('custodyMonth')?.value||today().slice(0,7)).slice(0,7);
+      const filename='سجل-العهدة-'+ym+'.pdf';
+      const file=new File([blob],filename,{type:'application/pdf'});
+      if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+        await navigator.share({files:[file],title:'سجل صرف العهدة — '+monthLabel47(ym)});
+      }else{
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),10000);
+        alert('تم تنزيل ملف PDF على الجهاز ويمكن إرساله كمرفق.');
+      }
+    }catch(e){
+      if(e?.name!=='AbortError')alert('تعذر إرسال PDF: '+(e.message||e));
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent=old||'📤 إرسال PDF'}
     }
   };
   window.openCustodyPdfForPrint47=async function(){
@@ -3523,19 +3546,20 @@ if ('serviceWorker' in navigator) {
       #custodyPrintOverlay47 .cpToolbar47 button{width:100%;min-height:44px;border:1px solid #cbd6e2;border-radius:11px;background:#fff;color:#08284a;font:900 11px Tahoma,Arial,sans-serif;padding:8px 5px}
       #custodyPrintOverlay47 .cpToolbar47 .primary{background:#08284a;color:#fff;border-color:#08284a}
       #custodyPrintOverlay47 .cpViewport47{overflow-x:auto;padding:10px 8px 24px}
-      #custodyPrintOverlay47 .cpPaper47{background:#fff;margin:0 auto;min-width:920px;max-width:1120px;padding:12px;box-shadow:0 4px 18px rgba(8,40,74,.12)}
+      #custodyPrintOverlay47 .cpPaper47{background:#fff;margin:0 auto;width:760px;min-width:760px;max-width:760px;padding:12px;box-shadow:0 4px 18px rgba(8,40,74,.12);box-sizing:border-box}
       @media print{
         body.custodyPrintActive47>*:not(#custodyPrintOverlay47){display:none!important}
         #custodyPrintOverlay47{position:static!important;inset:auto!important;background:#fff!important;overflow:visible!important}
         #custodyPrintOverlay47 .cpToolbar47{display:none!important}
         #custodyPrintOverlay47 .cpViewport47{overflow:visible!important;padding:0!important}
         #custodyPrintOverlay47 .cpPaper47{min-width:0!important;max-width:none!important;width:100%!important;box-shadow:none!important;padding:0!important}
-        @page{size:A4 landscape;margin:8mm}
+        @page{size:A4 portrait;margin:8mm}
       }
     </style>
     <div class="cpToolbar47 no-print">
       <button type="button" onclick="closeCustodyPrintOverlay47()">← رجوع</button>
       <button type="button" class="primary" id="custodyPdfDownload47" onclick="downloadCustodyPdf47()">⬇️ تحميل PDF</button>
+      <button type="button" id="custodyPdfShare47" onclick="shareCustodyPdf47()">📤 إرسال PDF</button>
       <button type="button" onclick="openCustodyPdfForPrint47()">🖨️ فتح PDF للطباعة</button>
       <button type="button" onclick="downloadCustodyMonth('${ym}')">📊 Excel</button>
     </div>
@@ -3552,22 +3576,27 @@ if ('serviceWorker' in navigator) {
       const tr=d.rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.expense_date||'')}</td><td>${esc(r.document_no||'—')}</td><td class="reason">${esc(r.expense_reason||'')}</td><td class="amount">${money47(r.amount)}</td><td>${esc(r.beneficiary||'—')}</td><td>${esc(r.document_status||'—')}</td><td>${Array.isArray(r.attachments)?r.attachments.length:0}</td></tr>`).join('')||'<tr><td colspan="8">لا توجد عمليات صرف في هذا الشهر.</td></tr>';
       const content=`<style>
         .custodyPrint47{direction:rtl;font-family:Tahoma,Arial,sans-serif;color:#10233a}
-        .custodyPrint47 .cpHead47{text-align:center;border-bottom:2px solid #f2c300;padding:8px 0;margin-bottom:8px}
-        .custodyPrint47 .cpHead47 h1{margin:0;color:#08284a;font-size:18px}.custodyPrint47 .cpHead47 p{margin:4px 0 0;font-size:9px;color:#64748b}
-        .custodyPrintSummary47{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:8px 0 12px}
-        .custodyPrintSummary47>div{border:1px solid #c8d2dc;border-radius:7px;padding:7px;text-align:center;background:#f8fafc}
-        .custodyPrintSummary47 span{display:block;font-size:8px;color:#64748b;margin-bottom:3px}.custodyPrintSummary47 b{display:block;font-size:12px;color:#08284a}
-        .custodyPrintMeta47{display:flex;justify-content:space-between;gap:12px;font-size:8px;color:#52677c;margin:0 0 7px}
-        .custodyPrint47 table{width:100%;border-collapse:collapse;table-layout:fixed}.custodyPrint47 th{background:#08284a;color:#fff}
-        .custodyPrint47 th,.custodyPrint47 td{border:1px solid #c8d2dc;font-size:8px;padding:4px;line-height:1.3;text-align:center}
+        .custodyPrint47 .cpHead47{display:grid;grid-template-columns:95px 1fr 95px;align-items:center;gap:8px;border-bottom:3px solid #f2c300;padding:6px 0 8px;margin-bottom:7px}
+        .custodyPrint47 .cpHeadSide47{font-size:8px;line-height:1.6;font-weight:800;color:#52677c}.custodyPrint47 .cpHeadSide47.right{text-align:right}.custodyPrint47 .cpHeadSide47.left{text-align:left;direction:ltr}
+        .custodyPrint47 .cpHeadCenter47{text-align:center}.custodyPrint47 .cpHeadCenter47 h1{margin:0;color:#08284a;font-size:16px}.custodyPrint47 .cpHeadCenter47 h2{margin:2px 0 0;color:#1769b5;font-size:10px}.custodyPrint47 .cpHeadCenter47 p{margin:2px 0 0;font-size:8px;color:#64748b}
+        .custodyPrintSummary47{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:7px 0 9px}
+        .custodyPrintSummary47>div{border:1px solid #c8d2dc;border-radius:5px;padding:5px 3px;text-align:center;background:#f8fafc}
+        .custodyPrintSummary47 span{display:block;font-size:7px;color:#64748b;margin-bottom:2px}.custodyPrintSummary47 b{display:block;font-size:10px;color:#08284a}
+        .custodyPrintMeta47{display:flex;justify-content:space-between;gap:8px;font-size:7.5px;color:#52677c;margin:0 0 6px}
+        .custodyPrint47 table{width:100%!important;max-width:100%!important;border-collapse:collapse;table-layout:fixed;overflow:visible}.custodyPrint47 th{background:#08284a;color:#fff}
+        .custodyPrint47 th,.custodyPrint47 td{border:1px solid #c8d2dc;font-size:7px;padding:3px 2px;line-height:1.25;text-align:center;word-break:break-word;overflow-wrap:anywhere;box-sizing:border-box}
         .custodyPrint47 tbody tr:nth-child(even){background:#f6f9fc}.custodyPrint47 td.reason{text-align:right}.custodyPrint47 td.amount{font-weight:900}
-        .custodyPrint47 th:nth-child(1){width:28px}.custodyPrint47 th:nth-child(2){width:76px}.custodyPrint47 th:nth-child(3){width:90px}
-        .custodyPrint47 th:nth-child(5){width:78px}.custodyPrint47 th:nth-child(7){width:80px}.custodyPrint47 th:nth-child(8){width:54px}
+        .custodyPrint47 th:nth-child(1){width:4%}.custodyPrint47 th:nth-child(2){width:12%}.custodyPrint47 th:nth-child(3){width:13%}.custodyPrint47 th:nth-child(4){width:24%}
+        .custodyPrint47 th:nth-child(5){width:11%}.custodyPrint47 th:nth-child(6){width:17%}.custodyPrint47 th:nth-child(7){width:11%}.custodyPrint47 th:nth-child(8){width:8%}
         .custodyPrint47 footer{margin-top:10px;border-top:1px solid #aaa;padding-top:7px;font-size:9px}
         @media print{.custodyPrint47 tr{break-inside:avoid}}
       </style>
       <div class="custodyPrint47">
-        <div class="cpHead47"><h1>سجل صرف العهدة — ${esc(monthLabel47(d.ym))}</h1><p>KAS TIRES — فرع المدينة</p></div>
+        <div class="cpHead47">
+          <div class="cpHeadSide47 right">شركة خالد عبدالله الصافي<br>KAS TIRES</div>
+          <div class="cpHeadCenter47"><h1>سجل صرف العهدة</h1><h2>فرع المدينة المنورة</h2><p>${esc(monthLabel47(d.ym))}</p></div>
+          <div class="cpHeadSide47 left">KHALID ABDULLAH AL-SAFI CO.<br>MEDINA BRANCH</div>
+        </div>
         <div class="custodyPrintMeta47"><span>المشرف: ${esc(me?.name||'—')}</span><span>الشهر: ${esc(monthLabel47(d.ym))}</span><span>تاريخ الطباعة: ${esc(today())}</span></div>
         <div class="custodyPrintSummary47">
           <div><span>عهدة الشهر</span><b>${money47(d.opening)} ر.س</b></div>
@@ -3584,7 +3613,7 @@ if ('serviceWorker' in navigator) {
       }else{
         const w=openPrintWindow();if(!w)return;
         let html=printHeader('سجل صرف العهدة — '+monthLabel47(d.ym),d.month);
-        html=html.replace('@page{size:A4 portrait;margin:10mm}','@page{size:A4 landscape;margin:8mm}');
+        html=html.replace('@page{size:A4 portrait;margin:10mm}','@page{size:A4 portrait;margin:8mm}');
         html+=content+'</div></body></html>';
         writeCustodyPreview47(w,html,d.ym);
       }
