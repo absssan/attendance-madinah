@@ -1839,7 +1839,7 @@ async function renderCustody(forceMonth){
     const total=rows.reduce((a,r)=>a+Number(r.amount||0),0),available=opening+carryover,remain=available-total,existing=rows.map((r,i)=>custodyRow(i+1,r)).join('');
     if(renderToken!==window.custodyRenderToken||selectedMonth!==window.currentCustodyMonth)return;
     $('content').innerHTML=`<div class="card"><div class="sectionhead"><h3 class="iconTitle"><span class="ico">💰</span> صرف العهدة — المشرف</h3><span class="pill p-blue">سجل شهري مستقل</span></div><div class="custodyMonthBar"><div class="field"><label>شهر السجل</label><input id="custodyMonth" type="month" value="${selectedMonth}" onchange="window.currentCustodyMonth=this.value;renderCustody()"></div><div class="field"><label>إجمالي العهدة للشهر</label><input id="custodyOpening" class="bigMoney" type="number" min="0" step="0.01" value="${opening||''}" placeholder="0.00"></div><div class="field"><label>المتبقي المرحل من الشهر السابق</label><input id="custodyCarryover" class="bigMoney" type="number" min="0" step="0.01" value="${carryover||''}" placeholder="0.00" readonly title="يُحسب تلقائيًا من إقفال الشهر السابق"></div><button class="btn secondary" onclick="loadPreviousCarryover()">↩ جلب المتبقي السابق</button><button class="btn secondary" onclick="saveCustodyMonthOnly()">💾 حفظ بيانات الشهر</button></div>${previousMissing?'<div class="msg" style="margin-top:10px">ℹ️ لا توجد عهدة للشهر السابق مباشرة، لذلك لا يوجد رصيد مرحّل لهذا الشهر.</div>':''}<div class="custodySummary"><div class="stat"><div class="label">عهدة الشهر</div><div class="num">${opening.toLocaleString('en-US',{minimumFractionDigits:2})} ر.س</div></div><div class="stat"><div class="label">المتبقي المرحل</div><div class="num">${carryover.toLocaleString('en-US',{minimumFractionDigits:2})} ر.س</div></div><div class="stat"><div class="label">المتاح للشهر</div><div class="num">${available.toLocaleString('en-US',{minimumFractionDigits:2})} ر.س</div></div><div class="stat"><div class="label">إجمالي المصروفات</div><div class="num orange">${total.toLocaleString('en-US',{minimumFractionDigits:2})} ر.س</div></div><div class="stat"><div class="label">المبلغ المتبقي</div><div class="num green">${remain.toLocaleString('en-US',{minimumFractionDigits:2})} ر.س</div></div></div></div>
-    <div class="card"><div class="tablewrap"><table class="custodyEntryTable"><thead><tr><th><input type="checkbox" class="custodyCheck" onchange="toggleAllCustody(this.checked)"></th><th>م</th><th>تاريخ الصرف</th><th>رقم المستند / الفاتورة</th><th>تصنيف سبب الصرف</th><th>المبلغ (ريال)</th><th>المستفيد / المورد</th><th>حالة المستند</th><th>📎 المستندات</th><th class="no-print">إجراء</th></tr></thead><tbody id="custodyBody">${existing}${Array.from({length:5},(_,k)=>custodyRow(rows.length+k+1)).join('')}</tbody></table></div><div class="actionRow no-print" style="margin-top:12px"><button class="btn" onclick="saveCustodyRows()">💾 حفظ سجل الشهر</button><button class="btn secondary" onclick="addCustodyRow()">＋ إضافة صف</button><button class="btn danger" onclick="deleteSelectedCustody()">🗑️ حذف المحدد</button><button class="btn secondary" onclick="printCustody()">🖨️ طباعة الشهر</button></div><div id="custodyMsg"></div></div>
+    <div class="card"><div class="tablewrap"><table class="custodyEntryTable"><thead><tr><th><input type="checkbox" class="custodyCheck" onchange="toggleAllCustody(this.checked)"></th><th>م</th><th>تاريخ الصرف</th><th>رقم المستند / الفاتورة</th><th>تصنيف سبب الصرف</th><th>المبلغ (ريال)</th><th>المستفيد / المورد</th><th>حالة المستند</th><th>📎 المستندات</th><th class="no-print">إجراء</th></tr></thead><tbody id="custodyBody">${existing}${Array.from({length:5},(_,k)=>custodyRow(rows.length+k+1)).join('')}</tbody></table></div><div class="actionRow no-print" style="margin-top:12px"><button class="btn" onclick="saveCustodyRows()">💾 حفظ سجل الشهر</button><button class="btn secondary" onclick="addCustodyRow()">＋ إضافة صف</button><button class="btn danger" onclick="deleteSelectedCustody()">🗑️ حذف المحدد</button><button class="btn secondary" onclick="printCustody()">🖨️ طباعة / حفظ PDF</button><button class="btn secondary" onclick="downloadCustodyMonth()">⬇️ تحميل Excel (CSV)</button></div><div id="custodyMsg"></div></div>
     <div class="card"><div class="muted">📁 كل شهر محفوظ كسجل مستقل ويمكن الرجوع إليه وتعديل العهدة والمتبقي المرحل والبنود والمستندات دون تكرار العمليات عند الحفظ.</div></div>`;
   }catch(e){$('content').innerHTML='<div class="card msg err">تعذر تحميل سجل صرف العهدة: '+esc(e.message)+'</div>'}
 }
@@ -3331,6 +3331,101 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 
+
+<script>
+/* A2-V47 — custody print/download hardening */
+(function(){
+  function custodyMonth47(v){
+    const raw=(v||$('custodyMonth')?.value||window.currentCustodyMonth||today().slice(0,7)).slice(0,7);
+    return /^\d{4}-\d{2}$/.test(raw)?raw:today().slice(0,7);
+  }
+  function monthLabel47(m){
+    try{return new Date(m+'-01T00:00:00').toLocaleDateString('ar-SA',{year:'numeric',month:'long'})}catch(_){return m}
+  }
+  async function custodyData47(raw){
+    const ym=custodyMonth47(raw),month=ym+'-01';
+    const [mr,rows]=await Promise.all([
+      api('/rest/v1/supervisor_custody_months?select=*&month_date=eq.'+encodeURIComponent(month)+'&limit=1',{cache:'no-store'}),
+      api('/rest/v1/supervisor_custody_expenses?select=*&custody_month=eq.'+encodeURIComponent(month)+'&order=expense_date.asc,created_at.asc',{cache:'no-store'})
+    ]);
+    const m=mr[0]||{};
+    const opening=Number(m.opening_balance||0),carry=Number(m.carryover_balance||0);
+    const total=(rows||[]).reduce((a,r)=>a+Number(r.amount||0),0);
+    return {ym,month,rows:rows||[],opening,carry,available:opening+carry,total,remain:opening+carry-total};
+  }
+  function money47(n){return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+  function escCsv47(v){return '"'+String(v??'').replace(/"/g,'""')+'"'}
+  function downloadText47(text,name,type){
+    const blob=new Blob(['\ufeff'+text],{type:type||'text/csv;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  }
+  window.downloadCustodyMonth=async function(monthArg){
+    if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
+    try{
+      const d=await custodyData47(monthArg);
+      const rows=[
+        ['سجل صرف العهدة',monthLabel47(d.ym)],
+        ['عهدة الشهر',d.opening],
+        ['المتبقي المرحل',d.carry],
+        ['المتاح للشهر',d.available],
+        ['إجمالي المصروفات',d.total],
+        ['المبلغ المتبقي',d.remain],
+        [],
+        ['م','تاريخ الصرف','رقم المستند / الفاتورة','سبب الصرف','المبلغ (ريال)','المستفيد / المورد','حالة المستند','عدد المستندات']
+      ];
+      d.rows.forEach((r,i)=>rows.push([i+1,r.expense_date||'',r.document_no||'',r.expense_reason||'',Number(r.amount||0),r.beneficiary||'',r.document_status||'',Array.isArray(r.attachments)?r.attachments.length:0]));
+      const csv=rows.map(r=>r.map(escCsv47).join(',')).join('\r\n');
+      downloadText47(csv,'سجل-العهدة-'+d.ym+'.csv','text/csv;charset=utf-8');
+    }catch(e){alert('تعذر تحميل ملف العهدة: '+e.message)}
+  };
+  window.printCustody=async function(monthArg){
+    if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
+    const w=openPrintWindow();if(!w)return;
+    try{
+      const d=await custodyData47(monthArg);
+      const tr=d.rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.expense_date||'')}</td><td>${esc(r.document_no||'—')}</td><td class="reason">${esc(r.expense_reason||'')}</td><td class="amount">${money47(r.amount)}</td><td>${esc(r.beneficiary||'—')}</td><td>${esc(r.document_status||'—')}</td><td>${Array.isArray(r.attachments)?r.attachments.length:0}</td></tr>`).join('')||'<tr><td colspan="8">لا توجد عمليات صرف في هذا الشهر.</td></tr>';
+      let html=printHeader('سجل صرف العهدة — '+monthLabel47(d.ym),d.month);
+      html=html.replace('@page{size:A4 portrait;margin:10mm}','@page{size:A4 landscape;margin:8mm}');
+      html+=`<style>
+        .custodyPrint47{direction:rtl}
+        .custodyPrintSummary47{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:8px 0 12px}
+        .custodyPrintSummary47>div{border:1px solid #c8d2dc;border-radius:7px;padding:7px;text-align:center;background:#f8fafc}
+        .custodyPrintSummary47 span{display:block;font-size:8px;color:#64748b;margin-bottom:3px}
+        .custodyPrintSummary47 b{display:block;font-size:12px;color:#08284a}
+        .custodyPrint47 table{table-layout:fixed}
+        .custodyPrint47 th,.custodyPrint47 td{font-size:8px!important;padding:4px!important;line-height:1.3}
+        .custodyPrint47 th:nth-child(1){width:28px}.custodyPrint47 th:nth-child(2){width:76px}.custodyPrint47 th:nth-child(3){width:90px}
+        .custodyPrint47 th:nth-child(5){width:78px}.custodyPrint47 th:nth-child(7){width:80px}.custodyPrint47 th:nth-child(8){width:54px}
+        .custodyPrint47 td.reason{text-align:right}.custodyPrint47 td.amount{font-weight:900}
+        .custodyPrintMeta47{display:flex;justify-content:space-between;gap:12px;font-size:8px;color:#52677c;margin:0 0 7px}
+        @media print{.custodyPrint47 tr{break-inside:avoid}}
+      </style>
+      <div class="custodyPrint47">
+        <div class="custodyPrintMeta47"><span>المشرف: ${esc(me?.name||'—')}</span><span>الشهر: ${esc(monthLabel47(d.ym))}</span><span>تاريخ الطباعة: ${esc(today())}</span></div>
+        <div class="custodyPrintSummary47">
+          <div><span>عهدة الشهر</span><b>${money47(d.opening)} ر.س</b></div>
+          <div><span>المتبقي المرحل</span><b>${money47(d.carry)} ر.س</b></div>
+          <div><span>المتاح للشهر</span><b>${money47(d.available)} ر.س</b></div>
+          <div><span>إجمالي المصروفات</span><b>${money47(d.total)} ر.س</b></div>
+          <div><span>المبلغ المتبقي</span><b>${money47(d.remain)} ر.س</b></div>
+        </div>
+        <table><thead><tr><th>م</th><th>تاريخ الصرف</th><th>رقم المستند</th><th>سبب الصرف</th><th>المبلغ</th><th>المستفيد</th><th>الحالة</th><th>المرفقات</th></tr></thead><tbody>${tr}</tbody></table>
+        <footer>عدد العمليات: ${d.rows.length} &nbsp; | &nbsp; إجمالي المصروفات: ${money47(d.total)} ريال &nbsp; | &nbsp; المتبقي: ${money47(d.remain)} ريال</footer>
+      </div></div></body></html>`;
+      writePrintWindow(w,html);
+    }catch(e){try{w.close()}catch(_){}alert('تعذر تجهيز صفحة الطباعة: '+e.message)}
+  };
+  if(typeof window.exportCustodyHistoryV41==='function'){
+    window.exportCustodyHistoryV41=async function(month){return window.downloadCustodyMonth((month||'').slice(0,7));};
+  }
+  if(typeof window.printCustodyHistoryV41==='function'){
+    window.printCustodyHistoryV41=async function(month){return window.printCustody((month||'').slice(0,7));};
+  }
+  if(typeof window.shareCustodyHistoryV41==='function'){
+    window.shareCustodyHistoryV41=async function(month){return window.printCustody((month||'').slice(0,7));};
+  }
+})();
+</script>
 </body></html><script>
 /* A2-V44 final navigation + employee recovery layer */
 (function(){
