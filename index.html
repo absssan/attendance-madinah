@@ -3461,12 +3461,25 @@ if ('serviceWorker' in navigator) {
     const orientation=resolveCustodyOrientation47(source);
     const exportWidth=orientation==='landscape'?1080:760;
 
+    // مهم: حاوية التصدير نفسها LTR حتى لا يقوم html2canvas بإزاحة صفحة RTL خارج حدود A4.
+    // اتجاه العربية يبقى داخل محتوى التقرير فقط.
     const exportWrap=document.createElement('div');
     exportWrap.id='custodyPdfExport47';
-    exportWrap.style.cssText='position:fixed;left:-100000px;top:0;width:'+exportWidth+'px;min-width:'+exportWidth+'px;max-width:'+exportWidth+'px;background:#fff;overflow:visible;z-index:-1;direction:rtl;';
+    exportWrap.style.cssText='position:absolute;left:0;top:0;width:'+exportWidth+'px;min-width:'+exportWidth+'px;max-width:'+exportWidth+'px;background:#fff;overflow:visible;z-index:-2147483000;direction:ltr;pointer-events:none;';
     const clone=source.cloneNode(true);
     clone.removeAttribute('id');
-    clone.style.cssText='width:'+exportWidth+'px!important;min-width:'+exportWidth+'px!important;max-width:'+exportWidth+'px!important;margin:0!important;padding:12px!important;box-sizing:border-box!important;overflow:visible!important;background:#fff!important;box-shadow:none!important;';
+    clone.style.cssText='width:'+exportWidth+'px!important;min-width:'+exportWidth+'px!important;max-width:'+exportWidth+'px!important;margin:0!important;padding:12px!important;box-sizing:border-box!important;overflow:visible!important;background:#fff!important;box-shadow:none!important;direction:ltr!important;position:relative!important;left:0!important;right:auto!important;transform:none!important;';
+    const report=clone.querySelector('.custodyPrint47');
+    if(report){
+      report.style.direction='rtl';
+      report.style.width='100%';
+      report.style.maxWidth='100%';
+      report.style.margin='0';
+      report.style.position='relative';
+      report.style.left='0';
+      report.style.right='0';
+      report.style.transform='none';
+    }
     exportWrap.appendChild(clone);
     document.body.appendChild(exportWrap);
 
@@ -3486,7 +3499,7 @@ if ('serviceWorker' in navigator) {
       });
 
       const opt={
-        margin:[4,4,4,4],
+        margin:[6,6,6,6],
         filename:'سجل-العهدة-'+ym+'.pdf',
         image:{type:'jpeg',quality:.98},
         html2canvas:{
@@ -3495,6 +3508,8 @@ if ('serviceWorker' in navigator) {
           logging:false,
           scrollX:0,
           scrollY:0,
+          x:0,
+          y:0,
           width:exportWidth,
           windowWidth:exportWidth,
           backgroundColor:'#ffffff'
