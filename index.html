@@ -3418,14 +3418,72 @@ if ('serviceWorker' in navigator) {
     document.body.classList.remove('custodyPrintActive47');
   }
   window.closeCustodyPrintOverlay47=closeCustodyPrintOverlay47;
+  let html2pdfLoad47=null;
+  function ensureHtml2pdf47(){
+    if(window.html2pdf)return Promise.resolve(window.html2pdf);
+    if(html2pdfLoad47)return html2pdfLoad47;
+    html2pdfLoad47=new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      s.async=true;
+      s.onload=()=>window.html2pdf?resolve(window.html2pdf):reject(Error('تعذر تهيئة PDF'));
+      s.onerror=()=>reject(Error('تعذر تحميل محرك PDF'));
+      document.head.appendChild(s);
+    });
+    return html2pdfLoad47;
+  }
+  async function custodyPdfBlob47(){
+    await ensureHtml2pdf47();
+    const el=document.querySelector('#custodyPrintOverlay47 .cpPaper47');
+    if(!el)throw Error('افتح معاينة العهدة أولاً.');
+    const ym=(window.currentCustodyMonth||$('custodyMonth')?.value||today().slice(0,7)).slice(0,7);
+    const opt={
+      margin:[5,5,5,5],
+      filename:'سجل-العهدة-'+ym+'.pdf',
+      image:{type:'jpeg',quality:.98},
+      html2canvas:{scale:2,useCORS:true,logging:false,scrollX:0,scrollY:0,windowWidth:1120},
+      jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},
+      pagebreak:{mode:['css','legacy'],avoid:['tr']}
+    };
+    return await window.html2pdf().set(opt).from(el).outputPdf('blob');
+  }
+  window.downloadCustodyPdf47=async function(){
+    try{
+      const btn=document.getElementById('custodyPdfDownload47');
+      const old=btn?.textContent;if(btn){btn.disabled=true;btn.textContent='جارٍ إنشاء PDF...'}
+      const blob=await custodyPdfBlob47();
+      const ym=(window.currentCustodyMonth||$('custodyMonth')?.value||today().slice(0,7)).slice(0,7);
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;a.download='سجل-العهدة-'+ym+'.pdf';document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),10000);
+      if(btn){btn.disabled=false;btn.textContent=old||'⬇️ تحميل PDF'}
+    }catch(e){
+      const btn=document.getElementById('custodyPdfDownload47');if(btn){btn.disabled=false;btn.textContent='⬇️ تحميل PDF'}
+      alert('تعذر إنشاء PDF: '+(e.message||e));
+    }
+  };
+  window.openCustodyPdfForPrint47=async function(){
+    const viewer=window.open('','_blank');
+    if(!viewer){alert('اسمح بفتح نافذة جديدة لعرض ملف PDF ثم حاول مرة أخرى.');return}
+    try{
+      viewer.document.write('<div dir="rtl" style="font-family:Tahoma;padding:30px;text-align:center">جارٍ تجهيز ملف PDF للطباعة...</div>');
+      const blob=await custodyPdfBlob47();
+      const url=URL.createObjectURL(blob);
+      viewer.location.replace(url);
+      setTimeout(()=>URL.revokeObjectURL(url),120000);
+    }catch(e){
+      try{viewer.close()}catch(_){}
+      alert('تعذر فتح PDF للطباعة: '+(e.message||e));
+    }
+  };
   function showCustodyPrintOverlay47(innerHtml,ym){
     closeCustodyPrintOverlay47();
     const wrap=document.createElement('div');
     wrap.id='custodyPrintOverlay47';
     wrap.innerHTML=`<style>
       #custodyPrintOverlay47{position:fixed;inset:0;z-index:2147483000;background:#eef3f7;overflow:auto;-webkit-overflow-scrolling:touch;direction:rtl}
-      #custodyPrintOverlay47 .cpToolbar47{position:sticky;top:0;z-index:3;display:flex;gap:8px;padding:max(10px,env(safe-area-inset-top)) 10px 10px;background:#fff;border-bottom:1px solid #d5e0ea;box-shadow:0 3px 12px rgba(8,40,74,.14)}
-      #custodyPrintOverlay47 .cpToolbar47 button{flex:1;min-height:44px;border:1px solid #cbd6e2;border-radius:11px;background:#fff;color:#08284a;font:900 12px Tahoma,Arial,sans-serif;padding:8px 5px}
+      #custodyPrintOverlay47 .cpToolbar47{position:sticky;top:0;z-index:3;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:max(10px,env(safe-area-inset-top)) 10px 10px;background:#fff;border-bottom:1px solid #d5e0ea;box-shadow:0 3px 12px rgba(8,40,74,.14)}
+      #custodyPrintOverlay47 .cpToolbar47 button{width:100%;min-height:44px;border:1px solid #cbd6e2;border-radius:11px;background:#fff;color:#08284a;font:900 11px Tahoma,Arial,sans-serif;padding:8px 5px}
       #custodyPrintOverlay47 .cpToolbar47 .primary{background:#08284a;color:#fff;border-color:#08284a}
       #custodyPrintOverlay47 .cpViewport47{overflow-x:auto;padding:10px 8px 24px}
       #custodyPrintOverlay47 .cpPaper47{background:#fff;margin:0 auto;min-width:920px;max-width:1120px;padding:12px;box-shadow:0 4px 18px rgba(8,40,74,.12)}
@@ -3440,20 +3498,15 @@ if ('serviceWorker' in navigator) {
     </style>
     <div class="cpToolbar47 no-print">
       <button type="button" onclick="closeCustodyPrintOverlay47()">← رجوع</button>
-      <button type="button" class="primary" id="custodyNativePrint47">🖨️ طباعة / حفظ PDF</button>
-      <button type="button" onclick="downloadCustodyMonth('${ym}')">⬇️ تحميل Excel</button>
+      <button type="button" class="primary" id="custodyPdfDownload47" onclick="downloadCustodyPdf47()">⬇️ تحميل PDF</button>
+      <button type="button" onclick="openCustodyPdfForPrint47()">🖨️ فتح PDF للطباعة</button>
+      <button type="button" onclick="downloadCustodyMonth('${ym}')">📊 Excel</button>
     </div>
     <div class="cpViewport47"><div class="cpPaper47">${innerHtml}</div></div>`;
     document.body.appendChild(wrap);
     document.documentElement.classList.add('custodyPrintActive47');
     document.body.classList.add('custodyPrintActive47');
-    const btn=document.getElementById('custodyNativePrint47');
-    if(btn)btn.addEventListener('click',function(){
-      try{
-        window.focus();
-        requestAnimationFrame(()=>setTimeout(()=>window.print(),30));
-      }catch(e){alert('تعذر فتح الطباعة: '+(e.message||e))}
-    });
+
   }
   window.printCustody=async function(monthArg){
     if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
