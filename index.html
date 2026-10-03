@@ -3292,14 +3292,15 @@ supervisorAttendanceAction=async function(employeeId,action){
     try{return (await api('/rest/v1/supervisor_custody_months',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)}))[0]||payload}
     catch(e){return payload}
   }
-  window.renderCustody=async function(){
+  window.renderCustody=async function(forceMonth){
     if(me?.role==='SUPERVISOR'){
       try{
-        const raw=$('custodyMonth')?.value||today().slice(0,7);
+        const raw=(forceMonth||$('custodyMonth')?.value||window.currentCustodyMonth||today().slice(0,7)).slice(0,7);
+        window.currentCustodyMonth=raw;
         await ensureCarryover45(raw);
       }catch(e){console.warn('carryover auto-init failed',e)}
     }
-    return oldRenderCustody();
+    return oldRenderCustody(forceMonth);
   };
   const oldBoot45=window.boot;
   if(typeof oldBoot45==='function'){
@@ -3321,7 +3322,9 @@ supervisorAttendanceAction=async function(employeeId,action){
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('/service-worker.js').catch(function (err) {
+    navigator.serviceWorker.register('/service-worker.js').then(function (registration) {
+      registration.update().catch(function(){});
+    }).catch(function (err) {
       console.warn('Service Worker registration failed:', err);
     });
   });
