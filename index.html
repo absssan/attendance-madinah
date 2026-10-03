@@ -3437,7 +3437,8 @@ if ('serviceWorker' in navigator) {
     if(custodyOrientation47==='portrait'||custodyOrientation47==='landscape')return custodyOrientation47;
     const cells=[...(source?.querySelectorAll('tbody td')||[])];
     const longest=cells.reduce((m,x)=>Math.max(m,(x.textContent||'').trim().length),0);
-    return longest>34?'landscape':'portrait';
+    // التقرير مصمم ليلائم A4 العمودي؛ نتحول أفقيًا تلقائيًا فقط عند نصوص طويلة جدًا.
+    return longest>60?'landscape':'portrait';
   }
   window.setCustodyOrientation47=function(v){
     custodyOrientation47=['auto','portrait','landscape'].includes(v)?v:'auto';
@@ -3474,6 +3475,7 @@ if ('serviceWorker' in navigator) {
       clone.querySelectorAll('table').forEach(t=>{
         t.style.width='100%';
         t.style.maxWidth='100%';
+        t.style.minWidth='0';
         t.style.tableLayout='fixed';
         t.style.overflow='visible';
       });
@@ -3605,34 +3607,41 @@ if ('serviceWorker' in navigator) {
       const tr=d.rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.expense_date||'')}</td><td>${esc(r.document_no||'—')}</td><td class="reason">${esc(r.expense_reason||'')}</td><td class="amount">${money47(r.amount)}</td><td>${esc(r.beneficiary||'—')}</td><td>${esc(r.document_status||'—')}</td><td>${Array.isArray(r.attachments)?r.attachments.length:0}</td></tr>`).join('')||'<tr><td colspan="8">لا توجد عمليات صرف في هذا الشهر.</td></tr>';
       const content=`<style>
         .custodyPrint47{direction:rtl;font-family:Tahoma,Arial,sans-serif;color:#10233a}
-        .custodyPrint47 .cpHead47{display:grid;grid-template-columns:95px 1fr 95px;align-items:center;gap:8px;border-bottom:3px solid #f2c300;padding:6px 0 8px;margin-bottom:7px}
-        .custodyPrint47 .cpHeadSide47{font-size:8px;line-height:1.6;font-weight:800;color:#52677c}.custodyPrint47 .cpHeadSide47.right{text-align:right}.custodyPrint47 .cpHeadSide47.left{text-align:left;direction:ltr}
-        .custodyPrint47 .cpHeadCenter47{text-align:center}.custodyPrint47 .cpHeadCenter47 h1{margin:0;color:#08284a;font-size:16px}.custodyPrint47 .cpHeadCenter47 h2{margin:2px 0 0;color:#1769b5;font-size:10px}.custodyPrint47 .cpHeadCenter47 p{margin:2px 0 0;font-size:8px;color:#64748b}
-        .custodyPrintSummary47{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:7px 0 9px}
-        .custodyPrintSummary47>div{border:1px solid #c8d2dc;border-radius:5px;padding:5px 3px;text-align:center;background:#f8fafc}
-        .custodyPrintSummary47 span{display:block;font-size:7px;color:#64748b;margin-bottom:2px}.custodyPrintSummary47 b{display:block;font-size:10px;color:#08284a}
-        .custodyPrintMeta47{display:flex;justify-content:space-between;gap:8px;font-size:7.5px;color:#52677c;margin:0 0 6px}
-        .custodyPrint47 table{width:100%!important;max-width:100%!important;border-collapse:collapse;table-layout:fixed;overflow:visible}.custodyPrint47 th{background:#08284a;color:#fff}
-        .custodyPrint47 th,.custodyPrint47 td{border:1px solid #c8d2dc;font-size:7px;padding:3px 2px;line-height:1.25;text-align:center;word-break:break-word;overflow-wrap:anywhere;box-sizing:border-box}
-        .custodyPrint47 tbody tr:nth-child(even){background:#f6f9fc}.custodyPrint47 td.reason{text-align:right}.custodyPrint47 td.amount{font-weight:900}
-        .custodyPrint47 th:nth-child(1){width:4%}.custodyPrint47 th:nth-child(2){width:12%}.custodyPrint47 th:nth-child(3){width:13%}.custodyPrint47 th:nth-child(4){width:24%}
-        .custodyPrint47 th:nth-child(5){width:11%}.custodyPrint47 th:nth-child(6){width:17%}.custodyPrint47 th:nth-child(7){width:11%}.custodyPrint47 th:nth-child(8){width:8%}
-        .custodyPrint47 footer{margin-top:10px;border-top:1px solid #aaa;padding-top:7px;font-size:9px}
+        .custodyPrint47{width:100%;max-width:100%;overflow:visible}
+        .custodyPrint47 .cpHead47{display:grid;grid-template-columns:1fr 100px 1fr;align-items:center;gap:12px;border-bottom:2px solid #f2c300;padding:5px 0 9px;margin-bottom:8px;direction:ltr}
+        .custodyPrint47 .cpHeadSide47{font-size:8.5px;line-height:1.45;font-weight:800;color:#10233a}.custodyPrint47 .cpHeadSide47.right{text-align:right;direction:rtl}.custodyPrint47 .cpHeadSide47.left{text-align:left;direction:ltr}
+        .custodyPrint47 .cpHeadSide47 b{display:block;color:#08284a;font-size:12px;margin-bottom:2px}
+        .custodyPrint47 .cpHeadLogo47{width:88px;height:62px;object-fit:contain;justify-self:center}
+        .custodyPrint47 .cpTitle47{text-align:center;margin:7px 0 2px;color:#08284a;font-size:17px;font-weight:900}
+        .custodyPrintMeta47{text-align:center;font-size:8px;color:#52677c;margin:0 0 8px}
+        .custodyPrintSummary47{width:46%;margin:0 0 7px auto;direction:rtl}
+        .custodyPrintSummary47>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:1px 0;font-size:10px;line-height:1.18}
+        .custodyPrintSummary47 span{color:#10233a;font-weight:800}.custodyPrintSummary47 b{font-size:14px;color:#08284a;white-space:nowrap}
+        .custodyPrint47 table{width:100%!important;max-width:100%!important;min-width:0!important;border-collapse:collapse!important;table-layout:fixed!important;overflow:visible!important}
+        .custodyPrint47 th{background:#f7f9fc;color:#718096;font-weight:800}
+        .custodyPrint47 th,.custodyPrint47 td{border:1px solid #c8d2dc;font-size:7.4px;padding:3.2px 2px;line-height:1.2;text-align:center;word-break:break-word;overflow-wrap:anywhere;box-sizing:border-box}
+        .custodyPrint47 tbody tr:nth-child(even){background:#fbfcfd}.custodyPrint47 td.reason{text-align:center}.custodyPrint47 td.amount{font-weight:900}
+        .custodyPrint47 th:nth-child(1){width:4%}.custodyPrint47 th:nth-child(2){width:13%}.custodyPrint47 th:nth-child(3){width:17%}.custodyPrint47 th:nth-child(4){width:21%}
+        .custodyPrint47 th:nth-child(5){width:11%}.custodyPrint47 th:nth-child(6){width:16%}.custodyPrint47 th:nth-child(7){width:11%}.custodyPrint47 th:nth-child(8){width:7%}
+        .custodyPrint47 footer{margin-top:8px;border-top:1px solid #9aa5b1;padding-top:6px;font-size:8px;text-align:right}
+        #custodyPrintOverlay47[data-orientation="landscape"] .custodyPrintSummary47{width:34%}
+        #custodyPrintOverlay47[data-orientation="landscape"] .custodyPrint47 th,#custodyPrintOverlay47[data-orientation="landscape"] .custodyPrint47 td{font-size:8.2px;padding:4px 3px}
         @media print{.custodyPrint47 tr{break-inside:avoid}}
       </style>
       <div class="custodyPrint47">
         <div class="cpHead47">
-          <div class="cpHeadSide47 right">شركة خالد عبدالله الصافي<br>KAS TIRES</div>
-          <div class="cpHeadCenter47"><h1>سجل صرف العهدة</h1><h2>فرع المدينة المنورة</h2><p>${esc(monthLabel47(d.ym))}</p></div>
-          <div class="cpHeadSide47 left">KHALID ABDULLAH AL-SAFI CO.<br>MEDINA BRANCH</div>
+          <div class="cpHeadSide47 left"><b>KHALID ABDULLAH AL-SAFI COMPANY</b>KAS TIRES — Medina Branch<br>Truck & Heavy Equipment Tires Specialist</div>
+          <img class="cpHeadLogo47" src="${document.querySelector('.brandLogo')?.src||''}" alt="KAS TIRES">
+          <div class="cpHeadSide47 right"><b>شركة خالد عبدالله الصافي</b>فرع المدينة المنورة<br>إطارات الشاحنات والمعدات الثقيلة</div>
         </div>
-        <div class="custodyPrintMeta47"><span>الشهر: ${esc(monthLabel47(d.ym))}</span><span>تاريخ الطباعة: ${esc(today())}</span></div>
+        <div class="cpTitle47">سجل صرف العهدة</div>
+        <div class="custodyPrintMeta47">الشهر: ${esc(monthLabel47(d.ym))} &nbsp; | &nbsp; تاريخ الطباعة: ${esc(today())} &nbsp; | &nbsp; الرقم الضريبي: 300057559400003</div>
         <div class="custodyPrintSummary47">
-          <div><span>عهدة الشهر</span><b>${money47(d.opening)} ر.س</b></div>
-          <div><span>المتبقي المرحل</span><b>${money47(d.carry)} ر.س</b></div>
-          <div><span>المتاح للشهر</span><b>${money47(d.available)} ر.س</b></div>
-          <div><span>إجمالي المصروفات</span><b>${money47(d.total)} ر.س</b></div>
-          <div><span>المبلغ المتبقي</span><b>${money47(d.remain)} ر.س</b></div>
+          <div><span>عهدة الشهر</span><b>${money47(d.opening)}</b></div>
+          <div><span>المتبقي المرحل</span><b>${money47(d.carry)}</b></div>
+          <div><span>المتاح للشهر</span><b>${money47(d.available)}</b></div>
+          <div><span>إجمالي المصروفات</span><b>${money47(d.total)}</b></div>
+          <div><span>المبلغ المتبقي</span><b>${money47(d.remain)}</b></div>
         </div>
         <table><thead><tr><th>م</th><th>تاريخ الصرف</th><th>رقم المستند</th><th>سبب الصرف</th><th>المبلغ</th><th>المستفيد</th><th>الحالة</th><th>المرفقات</th></tr></thead><tbody>${tr}</tbody></table>
         <footer>عدد العمليات: ${d.rows.length} &nbsp; | &nbsp; إجمالي المصروفات: ${money47(d.total)} ريال &nbsp; | &nbsp; المتبقي: ${money47(d.remain)} ريال</footer>
