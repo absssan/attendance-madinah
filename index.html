@@ -3432,19 +3432,40 @@ if ('serviceWorker' in navigator) {
     });
     return html2pdfLoad47;
   }
+  let custodyOrientation47='auto';
+  function resolveCustodyOrientation47(source){
+    if(custodyOrientation47==='portrait'||custodyOrientation47==='landscape')return custodyOrientation47;
+    const cells=[...(source?.querySelectorAll('tbody td')||[])];
+    const longest=cells.reduce((m,x)=>Math.max(m,(x.textContent||'').trim().length),0);
+    return longest>34?'landscape':'portrait';
+  }
+  window.setCustodyOrientation47=function(v){
+    custodyOrientation47=['auto','portrait','landscape'].includes(v)?v:'auto';
+    const o=document.getElementById('custodyPrintOverlay47');
+    if(!o)return;
+    const paper=o.querySelector('.cpPaper47');
+    const source=paper;
+    const resolved=resolveCustodyOrientation47(source);
+    o.dataset.orientation=resolved;
+    paper?.classList.toggle('landscape47',resolved==='landscape');
+    paper?.classList.toggle('portrait47',resolved==='portrait');
+    const label=o.querySelector('#custodyOrientationLabel47');
+    if(label)label.textContent=resolved==='landscape'?'أفقي':'عمودي';
+  };
   async function custodyPdfBlob47(){
     await ensureHtml2pdf47();
     const source=document.querySelector('#custodyPrintOverlay47 .cpPaper47');
     if(!source)throw Error('افتح معاينة العهدة أولاً.');
     const ym=(window.currentCustodyMonth||$('custodyMonth')?.value||today().slice(0,7)).slice(0,7);
+    const orientation=resolveCustodyOrientation47(source);
+    const exportWidth=orientation==='landscape'?1080:760;
 
-    // نسخة A4 عمودية مستقلة: عرض ثابت يضمن احتواء جميع الأعمدة بدون قص على الجوال.
     const exportWrap=document.createElement('div');
     exportWrap.id='custodyPdfExport47';
-    exportWrap.style.cssText='position:fixed;left:-100000px;top:0;width:760px;min-width:760px;max-width:760px;background:#fff;overflow:visible;z-index:-1;direction:rtl;';
+    exportWrap.style.cssText='position:fixed;left:-100000px;top:0;width:'+exportWidth+'px;min-width:'+exportWidth+'px;max-width:'+exportWidth+'px;background:#fff;overflow:visible;z-index:-1;direction:rtl;';
     const clone=source.cloneNode(true);
     clone.removeAttribute('id');
-    clone.style.cssText='width:760px!important;min-width:760px!important;max-width:760px!important;margin:0!important;padding:12px!important;box-sizing:border-box!important;overflow:visible!important;background:#fff!important;box-shadow:none!important;';
+    clone.style.cssText='width:'+exportWidth+'px!important;min-width:'+exportWidth+'px!important;max-width:'+exportWidth+'px!important;margin:0!important;padding:12px!important;box-sizing:border-box!important;overflow:visible!important;background:#fff!important;box-shadow:none!important;';
     exportWrap.appendChild(clone);
     document.body.appendChild(exportWrap);
 
@@ -3472,11 +3493,11 @@ if ('serviceWorker' in navigator) {
           logging:false,
           scrollX:0,
           scrollY:0,
-          width:760,
-          windowWidth:760,
+          width:exportWidth,
+          windowWidth:exportWidth,
           backgroundColor:'#ffffff'
         },
-        jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+        jsPDF:{unit:'mm',format:'a4',orientation},
         pagebreak:{mode:['css','legacy'],avoid:['tr']}
       };
       return await window.html2pdf().set(opt).from(clone).outputPdf('blob');
@@ -3543,21 +3564,29 @@ if ('serviceWorker' in navigator) {
     wrap.innerHTML=`<style>
       #custodyPrintOverlay47{position:fixed;inset:0;z-index:2147483000;background:#eef3f7;overflow:auto;-webkit-overflow-scrolling:touch;direction:rtl}
       #custodyPrintOverlay47 .cpToolbar47{position:sticky;top:0;z-index:3;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:max(10px,env(safe-area-inset-top)) 10px 10px;background:#fff;border-bottom:1px solid #d5e0ea;box-shadow:0 3px 12px rgba(8,40,74,.14)}
+      #custodyPrintOverlay47 .cpToolbar47 select{width:100%;min-height:44px;border:1px solid #cbd6e2;border-radius:11px;background:#fff;color:#08284a;font:900 11px Tahoma,Arial,sans-serif;padding:8px}
       #custodyPrintOverlay47 .cpToolbar47 button{width:100%;min-height:44px;border:1px solid #cbd6e2;border-radius:11px;background:#fff;color:#08284a;font:900 11px Tahoma,Arial,sans-serif;padding:8px 5px}
       #custodyPrintOverlay47 .cpToolbar47 .primary{background:#08284a;color:#fff;border-color:#08284a}
       #custodyPrintOverlay47 .cpViewport47{overflow-x:auto;padding:10px 8px 24px}
-      #custodyPrintOverlay47 .cpPaper47{background:#fff;margin:0 auto;width:760px;min-width:760px;max-width:760px;padding:12px;box-shadow:0 4px 18px rgba(8,40,74,.12);box-sizing:border-box}
+      #custodyPrintOverlay47 .cpPaper47{background:#fff;margin:0 auto;padding:12px;box-shadow:0 4px 18px rgba(8,40,74,.12);box-sizing:border-box;transition:width .2s ease}
+      #custodyPrintOverlay47 .cpPaper47.portrait47{width:760px;min-width:760px;max-width:760px}
+      #custodyPrintOverlay47 .cpPaper47.landscape47{width:1080px;min-width:1080px;max-width:1080px}
       @media print{
         body.custodyPrintActive47>*:not(#custodyPrintOverlay47){display:none!important}
         #custodyPrintOverlay47{position:static!important;inset:auto!important;background:#fff!important;overflow:visible!important}
         #custodyPrintOverlay47 .cpToolbar47{display:none!important}
         #custodyPrintOverlay47 .cpViewport47{overflow:visible!important;padding:0!important}
         #custodyPrintOverlay47 .cpPaper47{min-width:0!important;max-width:none!important;width:100%!important;box-shadow:none!important;padding:0!important}
-        @page{size:A4 portrait;margin:8mm}
+        @page{size:A4;margin:8mm}
       }
     </style>
     <div class="cpToolbar47 no-print">
       <button type="button" onclick="closeCustodyPrintOverlay47()">← رجوع</button>
+      <select id="custodyOrientation47" onchange="setCustodyOrientation47(this.value)">
+        <option value="auto">اتجاه تلقائي</option>
+        <option value="portrait">عمودي</option>
+        <option value="landscape">أفقي</option>
+      </select>
       <button type="button" class="primary" id="custodyPdfDownload47" onclick="downloadCustodyPdf47()">⬇️ تحميل PDF</button>
       <button type="button" id="custodyPdfShare47" onclick="shareCustodyPdf47()">📤 إرسال PDF</button>
       <button type="button" onclick="openCustodyPdfForPrint47()">🖨️ فتح PDF للطباعة</button>
@@ -3567,7 +3596,7 @@ if ('serviceWorker' in navigator) {
     document.body.appendChild(wrap);
     document.documentElement.classList.add('custodyPrintActive47');
     document.body.classList.add('custodyPrintActive47');
-
+    setCustodyOrientation47(custodyOrientation47);
   }
   window.printCustody=async function(monthArg){
     if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
@@ -3597,7 +3626,7 @@ if ('serviceWorker' in navigator) {
           <div class="cpHeadCenter47"><h1>سجل صرف العهدة</h1><h2>فرع المدينة المنورة</h2><p>${esc(monthLabel47(d.ym))}</p></div>
           <div class="cpHeadSide47 left">KHALID ABDULLAH AL-SAFI CO.<br>MEDINA BRANCH</div>
         </div>
-        <div class="custodyPrintMeta47"><span>المشرف: ${esc(me?.name||'—')}</span><span>الشهر: ${esc(monthLabel47(d.ym))}</span><span>تاريخ الطباعة: ${esc(today())}</span></div>
+        <div class="custodyPrintMeta47"><span>الشهر: ${esc(monthLabel47(d.ym))}</span><span>تاريخ الطباعة: ${esc(today())}</span></div>
         <div class="custodyPrintSummary47">
           <div><span>عهدة الشهر</span><b>${money47(d.opening)} ر.س</b></div>
           <div><span>المتبقي المرحل</span><b>${money47(d.carry)} ر.س</b></div>
@@ -3608,15 +3637,7 @@ if ('serviceWorker' in navigator) {
         <table><thead><tr><th>م</th><th>تاريخ الصرف</th><th>رقم المستند</th><th>سبب الصرف</th><th>المبلغ</th><th>المستفيد</th><th>الحالة</th><th>المرفقات</th></tr></thead><tbody>${tr}</tbody></table>
         <footer>عدد العمليات: ${d.rows.length} &nbsp; | &nbsp; إجمالي المصروفات: ${money47(d.total)} ريال &nbsp; | &nbsp; المتبقي: ${money47(d.remain)} ريال</footer>
       </div>`;
-      if(isMobileCustody47()){
-        showCustodyPrintOverlay47(content,d.ym);
-      }else{
-        const w=openPrintWindow();if(!w)return;
-        let html=printHeader('سجل صرف العهدة — '+monthLabel47(d.ym),d.month);
-        html=html.replace('@page{size:A4 portrait;margin:10mm}','@page{size:A4 portrait;margin:8mm}');
-        html+=content+'</div></body></html>';
-        writeCustodyPreview47(w,html,d.ym);
-      }
+      showCustodyPrintOverlay47(content,d.ym);
     }catch(e){alert('تعذر تجهيز صفحة الطباعة: '+e.message)}
   };
   if(typeof window.exportCustodyHistoryV41==='function'){
