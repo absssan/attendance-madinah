@@ -3359,6 +3359,37 @@ if ('serviceWorker' in navigator) {
     const blob=new Blob(['\ufeff'+text],{type:type||'text/csv;charset=utf-8'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
   }
+  function writeCustodyPreview47(w,html,ym){
+    const toolbar=`<div class="custodyMobileToolbar47 no-print">
+      <button type="button" onclick="if(window.opener&&!window.opener.closed){window.close()}else{history.back()}">← رجوع</button>
+      <button type="button" class="primary" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
+      <button type="button" onclick="try{if(window.opener&&window.opener.downloadCustodyMonth){window.opener.downloadCustodyMonth('${ym}')}else{alert('ارجع لصفحة العهدة واضغط تحميل Excel')}}catch(e){alert('تعذر بدء التحميل')}">⬇️ تحميل Excel</button>
+    </div>`;
+    html=html.replace('<meta charset="utf-8">','<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">');
+    html=html.replace('<body>','<body>'+toolbar);
+    html=html.replace('</head>',`<style>
+      .custodyMobileToolbar47{position:sticky;top:0;z-index:99999;display:flex;gap:8px;align-items:center;justify-content:center;padding:10px max(10px,env(safe-area-inset-right)) 10px max(10px,env(safe-area-inset-left));background:rgba(255,255,255,.97);border-bottom:1px solid #d7e1eb;box-shadow:0 4px 14px rgba(8,40,74,.12);direction:rtl}
+      .custodyMobileToolbar47 button{appearance:none;border:1px solid #cbd6e2;background:#fff;color:#08284a;border-radius:10px;padding:10px 12px;font-family:Tahoma,Arial,sans-serif;font-size:13px;font-weight:900;min-height:42px;cursor:pointer}
+      .custodyMobileToolbar47 button.primary{background:#08284a;color:#fff;border-color:#08284a}
+      .custodyScreenScroll47{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+      @media(max-width:700px){
+        body{padding-bottom:max(12px,env(safe-area-inset-bottom))}
+        .custodyMobileToolbar47{justify-content:stretch}
+        .custodyMobileToolbar47 button{flex:1;padding:9px 5px;font-size:11px}
+        .reportPrintSheet{min-width:920px;padding:8px;box-sizing:border-box}
+        .custodyScreenScroll47{overflow-x:auto}
+      }
+      @media print{
+        .custodyMobileToolbar47{display:none!important}
+        .reportPrintSheet{min-width:0!important;padding:0!important}
+        body{padding:0!important}
+      }
+    </style></head>`);
+    html=html.replace('<div class="reportPrintSheet">','<div class="custodyScreenScroll47"><div class="reportPrintSheet">');
+    html=html.replace('</div></body></html>','</div></div></body></html>');
+    w.document.open();w.document.write(html);w.document.close();
+    try{w.focus()}catch(_){}
+  }
   window.downloadCustodyMonth=async function(monthArg){
     if(me?.role!=='SUPERVISOR'){alert('هذه الصلاحية للمشرف فقط.');return}
     try{
@@ -3412,7 +3443,7 @@ if ('serviceWorker' in navigator) {
         <table><thead><tr><th>م</th><th>تاريخ الصرف</th><th>رقم المستند</th><th>سبب الصرف</th><th>المبلغ</th><th>المستفيد</th><th>الحالة</th><th>المرفقات</th></tr></thead><tbody>${tr}</tbody></table>
         <footer>عدد العمليات: ${d.rows.length} &nbsp; | &nbsp; إجمالي المصروفات: ${money47(d.total)} ريال &nbsp; | &nbsp; المتبقي: ${money47(d.remain)} ريال</footer>
       </div></div></body></html>`;
-      writePrintWindow(w,html);
+      writeCustodyPreview47(w,html,d.ym);
     }catch(e){try{w.close()}catch(_){}alert('تعذر تجهيز صفحة الطباعة: '+e.message)}
   };
   if(typeof window.exportCustodyHistoryV41==='function'){
